@@ -1,0 +1,17 @@
+{
+  "id": "com.model-command-refactor.mod",
+  "name": "重构model命令",
+  "version": "1.0.0",
+  "type": "replace",
+  "description": "",
+  "author": "",
+  "category": "功能增强",
+  "iflowVersion": "0.5.19",
+  "iflowVersionConstraint": "0.5.19",
+  "icon": "🔧",
+  "tags": [],
+  "homepage": "",
+  "repository": "",
+  "license": "MIT",
+  "entry": "code.js"
+}

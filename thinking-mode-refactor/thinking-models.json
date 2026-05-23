@@ -1,0 +1,297 @@
+{
+  "description": "Thinking model rules config template",
+  "version": 1,
+  "models": [
+    {
+      "pattern": "^o1-(preview|mini)",
+      "supportsThinking": true,
+      "supportedReasoningLevels": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "maxThinkingTokens": 32000,
+      "thinkingRequest": {
+        "setConditional": [
+          {
+            "when": {
+              "reasoningLevel": {
+                "ne": "low"
+              }
+            },
+            "set": {
+              "reasoning": true
+            }
+          }
+        ]
+      },
+      "nonThinkingRequest": {
+        "delete": [
+          "reasoning"
+        ]
+      }
+    },
+    {
+      "pattern": "^deepseek-(v3|v3\\.2-chat)",
+      "supportsThinking": true,
+      "supportedReasoningLevels": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "maxThinkingTokens": 32000,
+      "thinkingRequest": {
+        "setConditional": [
+          {
+            "when": {
+              "reasoningLevel": {
+                "ne": "low"
+              }
+            },
+            "set": {
+              "reasoning": true
+            }
+          }
+        ],
+        "set": {
+          "thinking_mode": true
+        }
+      },
+      "nonThinkingRequest": {
+        "delete": [
+          "reasoning",
+          "thinking_mode"
+        ]
+      }
+    },
+    {
+      "pattern": "glm-4\\.7",
+      "supportsThinking": true,
+      "supportedReasoningLevels": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "maxThinkingTokens": 20000,
+      "thinkingRequest": {
+        "setNested": {
+          "chat_template_kwargs.enable_thinking": true
+        }
+      },
+      "nonThinkingRequest": {
+        "setNested": {
+          "chat_template_kwargs.enable_thinking": false
+        }
+      }
+    },
+    {
+      "pattern": "glm-5",
+      "supportsThinking": true,
+      "supportedReasoningLevels": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "maxThinkingTokens": 20000,
+      "thinkingRequest": {
+        "set": {
+          "enable_thinking": true
+        },
+        "setNested": {
+          "chat_template_kwargs.enable_thinking": true,
+          "thinking.type": "enabled"
+        }
+      },
+      "nonThinkingRequest": {
+        "set": {
+          "enable_thinking": false
+        },
+        "setNested": {
+          "chat_template_kwargs.enable_thinking": false,
+          "thinking.type": "disabled"
+        }
+      }
+    },
+    {
+      "pattern": "^glm-",
+      "supportsThinking": true,
+      "supportedReasoningLevels": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "maxThinkingTokens": 20000,
+      "thinkingRequest": {
+        "setNested": {
+          "chat_template_kwargs.enable_thinking": true
+        }
+      },
+      "nonThinkingRequest": {
+        "setNested": {
+          "chat_template_kwargs.enable_thinking": false
+        }
+      }
+    },
+    {
+      "pattern": "^claude-3\\.5-sonnet",
+      "supportsThinking": true,
+      "supportedReasoningLevels": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "maxThinkingTokens": 25000,
+      "thinkingRequest": {
+        "setNested": {
+          "thinking.enabled": true
+        },
+        "setTemplate": {
+          "thinking.max_tokens": "{{maxTokens}}",
+          "thinking.reasoning_level": "{{reasoningLevel}}"
+        }
+      }
+    },
+    {
+      "pattern": "^claude-",
+      "supportsThinking": true,
+      "supportedReasoningLevels": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "maxThinkingTokens": 20000,
+      "thinkingRequest": {
+        "setNested": {
+          "chat_template_kwargs.enable_thinking": true
+        }
+      }
+    },
+    {
+      "pattern": "reasoning",
+      "supportsThinking": true,
+      "supportedReasoningLevels": [
+        "low",
+        "medium"
+      ],
+      "maxThinkingTokens": 10000,
+      "thinkingRequest": {
+        "setConditional": [
+          {
+            "when": {
+              "reasoningLevel": {
+                "ne": "low"
+              }
+            },
+            "set": {
+              "reasoning": true
+            }
+          }
+        ]
+      },
+      "nonThinkingRequest": {
+        "delete": [
+          "reasoning"
+        ]
+      }
+    },
+    {
+      "pattern": "^kimi-k2\\.5",
+      "supportsThinking": true,
+      "supportedReasoningLevels": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "maxThinkingTokens": 32768,
+      "thinkingRequest": {
+        "setNested": {
+          "thinking.type": "enabled"
+        }
+      },
+      "nonThinkingRequest": {
+        "setNested": {
+          "thinking.type": "disabled"
+        }
+      }
+    },
+    {
+      "pattern": "thinking",
+      "supportsThinking": true,
+      "supportedReasoningLevels": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "maxThinkingTokens": 15000,
+      "thinkingRequest": {
+        "set": {
+          "thinking_mode": true
+        }
+      },
+      "nonThinkingRequest": {
+        "delete": [
+          "thinking_mode"
+        ]
+      }
+    },
+    {
+      "pattern": "qwen.*4b",
+      "supportsThinking": false,
+      "supportedReasoningLevels": [],
+      "maxThinkingTokens": 0,
+      "thinkingRequest": {
+        "delete": [
+          "thinking_mode",
+          "reasoning",
+          "chat_template_kwargs"
+        ],
+        "setNested": {
+          "extend_fields.chat_template_kwargs.enable_thinking": false
+        }
+      }
+    },
+    {
+      "pattern": "mimo-",
+      "supportsThinking": true,
+      "supportedReasoningLevels": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "maxThinkingTokens": 20000,
+      "thinkingRequest": {
+        "setNested": {
+          "thinking.type": "enabled"
+        }
+      },
+      "nonThinkingRequest": {
+        "setNested": {
+          "thinking.type": "disabled"
+        }
+      }
+    },
+    {
+      "pattern": "deepseek-v4-flash",
+      "supportsThinking": true,
+      "supportedReasoningLevels": [
+        "low",
+        "high"
+      ],
+      "maxThinkingTokens": 65536,
+      "thinkingRequest": {
+        "setNested": {
+          "thinking.type": "enabled",
+          "thinking.reasoning_effort": "high"
+        }
+      },
+      "nonThinkingRequest": {
+        "setNested": {
+          "thinking.type": "disabled"
+        }
+      }
+    }
+  ],
+  "modelAliases": {
+    "deepseek-v3\\.2-chat": "deepseek-v3.2-reasoner"
+  }
+}

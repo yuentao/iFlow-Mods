@@ -1,0 +1,24 @@
+{
+  "id": "com.thinking-mode-refactor.mod",
+  "name": "thinking-mode-refactor",
+  "version": "1.0.0",
+  "type": "patch",
+  "description": "将 iFlow 中硬编码的 12 条模型注册规则解耦到外部 JSON 配置文件中，用户可通过编辑配置文件来添加、修改或禁用任意模型的思考能力配置，无需修改源码。",
+  "author": "yuantao",
+  "category": "功能增强",
+  "iflowVersion": "0.5.19",
+  "iflowVersionConstraint": "0.5.19",
+  "icon": "🔧",
+  "tags": [],
+  "homepage": "",
+  "repository": "",
+  "license": "MIT",
+  "include": [
+    "thinking-model-loader.cjs",
+    "thinking-models.json"
+  ],
+  "includeMap": {
+    "thinking-model-loader.cjs": "core",
+    "thinking-models.json": "~/.iflow"
+  }
+}

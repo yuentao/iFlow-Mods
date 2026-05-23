@@ -1,0 +1,28 @@
+{
+  "id": "com.multimodal-image-refactor.mod",
+  "name": "multimodal-image-refactor",
+  "version": "1.0.0",
+  "type": "patch",
+  "description": "将 iFlow 中硬编码的 50+ 多模态模型识别列表和视觉模型路由配置解耦到外部 JSON 配置文件中，用户可通过编辑配置文件来添加、修改多模态模型识别规则和图片描述模型路由，无需修改源码。支持 directMultimodal 模式强制所有模型直接传递图片。",
+  "author": "yuantao",
+  "category": "功能增强",
+  "iflowVersion": "0.5.19",
+  "iflowVersionConstraint": "0.5.19",
+  "icon": "🖼️",
+  "tags": [
+    "multimodal",
+    "vision",
+    "image"
+  ],
+  "homepage": "",
+  "repository": "",
+  "license": "MIT",
+  "include": [
+    "multimodal-model-loader.cjs",
+    "multimodal-models.json"
+  ],
+  "includeMap": {
+    "multimodal-model-loader.cjs": "core",
+    "multimodal-models.json": "~/.iflow"
+  }
+}
