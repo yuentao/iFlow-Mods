@@ -1,5 +1,7 @@
 @iflow.js.original 我想修改这个应用中的(多模态模型)的调用方式，用于图片的识别，帮我规划一个实现方案保存在根目录
 
+@iflow.js.original 我想在这个应用中增加(apiProfile切换)的功能，使用(/api)命令进行切换，具体的切换逻辑参考(J:\git\iFlow-Settings-Editor-GUI)项目，帮我规划一个实现方案保存在根目录
+
 @iflow.js.original 我想修改这个应用中(开启/关闭模型思考模式)的实现方式，帮我规划一个实现方案保存在根目录
 
 更新方案，但是不实施
@@ -9,3 +11,5 @@
 (https://platform.sensenova.cn/docs)这份文档中包含怎么开启(deepseek-v4-flash)模型思考模式的方式，好好想想目前的方案是否可以支持
 
 移除方案中(交互优化)相关描述
+
+由于mod.json配置中出现了新的(dependsOn)属性，需要先对(J:\git\iFlow-Settings-Editor-GUI)和(J:\git\iFlow-Mod-Builder)进行改造以支持这个属性

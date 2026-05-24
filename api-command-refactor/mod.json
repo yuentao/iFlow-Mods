@@ -1,0 +1,18 @@
+{
+  "id": "com.api-command-refactor.mod",
+  "name": "API Profile切换命令",
+  "version": "1.0.0",
+  "type": "patch",
+  "description": "添加 /api 命令，支持在 TUI 中切换 API Profile（依赖 command-api-refactor MOD）",
+  "author": "",
+  "category": "功能增强",
+  "iflowVersion": "0.5.19",
+  "iflowVersionConstraint": "0.5.19",
+  "icon": "🔑",
+  "tags": ["api", "profile", "switch", "command-api"],
+  "homepage": "",
+  "repository": "",
+  "license": "MIT",
+  "entry": "code.js",
+  "dependsOn": ["com.command-api-refactor.mod"]
+}
