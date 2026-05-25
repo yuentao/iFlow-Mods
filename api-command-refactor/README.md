@@ -92,8 +92,40 @@
 
 ## 安装
 
-将 `code.js` 复制到 iFlow CLI 目录覆盖原文件。
+### 前置条件
+
+1. 确保已安装 **command-api-refactor** MOD（提供命令注册 API）
+
+### 安装步骤
+
+1. 将 `api-command-loader.cjs` 复制到 iFlow CLI 的核心目录（与 `iflow.js` 同目录）
+2. 修改 `iflow.js` 源码，在插入点添加加载语句：
+
+**插入位置**（约 L950）：
+```javascript
+// 原始代码
+},A2=new Dqe});function Pln(){
+
+// 修改后（添加 api-command-loader）
+},A2=new Dqe,require('./command-registry-loader.cjs').load(A2),require('./api-command-loader.cjs').load(A2)});function Pln(){
+```
+
+> **注意**：如果已安装 command-api-refactor，只需在现有 require 语句后添加逗号和新的加载语句。
+
+### 安装后效果
+
+```bash
+# 列出所有 API Profile
+/api --list
+
+# 切换到指定 Profile
+/api --profile 讯飞
+
+# 查看帮助
+/api
+```
 
 ## 卸载
 
-恢复原始 `iflow.js.original` 文件即可。
+1. 删除 `api-command-loader.cjs` 文件
+2. 恢复 `iflow.js` 源码，移除相关 require 语句
