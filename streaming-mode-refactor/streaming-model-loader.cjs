@@ -35,7 +35,8 @@ const DEFAULT_CONFIG = {
     'o1-mini',
     'o1-.*',
     'o3-.*',
-    'o4-mini'
+    'o4-mini',
+    'claude-opus-4.*'
   ]
 };
 
