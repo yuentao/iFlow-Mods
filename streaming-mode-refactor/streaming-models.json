@@ -1,0 +1,12 @@
+{
+  "version": "1.0.0",
+  "description": "Streaming mode configuration — place at ~/.iflow/streaming-models.json",
+  "forceNonStream": false,
+  "nonStreamModels": [
+    "o1-preview",
+    "o1-mini",
+    "o1-.*",
+    "o3-.*",
+    "o4-mini"
+  ]
+}
