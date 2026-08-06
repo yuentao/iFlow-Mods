@@ -90,6 +90,18 @@ function removeStreamFields(requestBody) {
 }
 
 /**
+ * Ensure a request body explicitly uses streaming.
+ * @param {object} requestBody
+ */
+function ensureStreamFields(requestBody) {
+  requestBody.stream = true;
+  requestBody.stream_options = {
+    ...(requestBody.stream_options && typeof requestBody.stream_options === 'object' ? requestBody.stream_options : {}),
+    include_usage: true
+  };
+}
+
+/**
  * Main load function — patches the Dqe (A2) adapter instance.
  * @param {object} adapter - Dqe instance (A2)
  */
@@ -102,45 +114,51 @@ function load(adapter) {
   }
 
   adapter._streamingConfig = config;
-  adapter._forceNonStreamOverride = null; // null = auto (config-based), true = force non-stream, false = force stream
+  adapter._forceNonStreamOverrides = Object.create(null); // modelName -> true(force non-stream) / false(force stream)
 
   adapter.shouldForceNonStream = function(modelName) {
-    // Runtime override takes priority
-    if (this._forceNonStreamOverride !== null) return this._forceNonStreamOverride;
+    if (modelName && typeof modelName === 'string' && Object.prototype.hasOwnProperty.call(this._forceNonStreamOverrides, modelName)) {
+      return this._forceNonStreamOverrides[modelName];
+    }
     return shouldForceNonStream(modelName, this._streamingConfig);
   };
 
   adapter.isStreamingModeSupported = function(modelName) {
-    // All models support streaming mode toggle — user can Ctrl+S on any model
-    // to switch between stream and non-stream at runtime.
-    if (!modelName || typeof modelName !== 'string') return false;
-    return true;
+    return !!(modelName && typeof modelName === 'string');
   };
 
   adapter.toggleForceNonStream = function(modelName) {
-    if (this._forceNonStreamOverride === null) {
-      // Auto mode: toggle to opposite of config-based result
-      this._forceNonStreamOverride = !shouldForceNonStream(modelName, this._streamingConfig);
-    } else {
-      // Already overridden: toggle the override
-      this._forceNonStreamOverride = !this._forceNonStreamOverride;
+    if (!modelName || typeof modelName !== 'string') {
+      return false;
     }
-    return this._forceNonStreamOverride;
+
+    const hasOverride = Object.prototype.hasOwnProperty.call(this._forceNonStreamOverrides, modelName);
+    if (!hasOverride) {
+      this._forceNonStreamOverrides[modelName] = !shouldForceNonStream(modelName, this._streamingConfig);
+    } else {
+      this._forceNonStreamOverrides[modelName] = !this._forceNonStreamOverrides[modelName];
+    }
+    return this._forceNonStreamOverrides[modelName];
   };
 
   adapter.getStreamingModeEnabled = function(modelName) {
-    // Returns true if streaming is enabled (non-stream is NOT forced)
     return !this.shouldForceNonStream(modelName);
   };
 
-  adapter.setStreamingModeEnabled = function(enabled) {
-    // Set streaming mode: true = stream enabled, false = non-stream forced
-    this._forceNonStreamOverride = !enabled;
+  adapter.setStreamingModeEnabled = function(modelName, enabled) {
+    if (!modelName || typeof modelName !== 'string') {
+      return false;
+    }
+    this._forceNonStreamOverrides[modelName] = !enabled;
+    return true;
   };
 
-  adapter.resetStreamingModeOverride = function() {
-    // Reset to auto (config-based) mode
-    this._forceNonStreamOverride = null;
+  adapter.resetStreamingModeOverride = function(modelName) {
+    if (!modelName || typeof modelName !== 'string') {
+      this._forceNonStreamOverrides = Object.create(null);
+      return;
+    }
+    delete this._forceNonStreamOverrides[modelName];
   };
 
   // Monkey-patch A2.configureThinkingRequest
@@ -150,6 +168,8 @@ function load(adapter) {
       const result = originalConfigureThinkingRequest.call(this, modelName, requestBody, thinkingConfig);
       if (this.shouldForceNonStream(modelName)) {
         removeStreamFields(requestBody);
+      } else {
+        ensureStreamFields(requestBody);
       }
       return result;
     };
@@ -162,6 +182,8 @@ function load(adapter) {
       const result = originalConfigureNonThinkingRequest.call(this, modelName, requestBody);
       if (this.shouldForceNonStream(modelName)) {
         removeStreamFields(requestBody);
+      } else {
+        ensureStreamFields(requestBody);
       }
       return result;
     };

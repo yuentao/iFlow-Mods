@@ -17,8 +17,8 @@ s && (p.stream = true, p.stream_options = { include_usage: true });
 
 ## 功能
 
-1. **nonStreamModels 配置化** — 正则模式匹配模型名称，匹配的模型强制关闭流式
-2. **forceNonStream 全局开关** — 设为 `true` 时所有模型都强制非流式
+1. **nonStreamModels 配置化** — 正则模式匹配模型名称，决定哪些模型默认强制关闭流式
+2. **forceNonStream 全局开关** — 设为 `true` 时所有模型都默认强制非流式
 3. **Ctrl+S 快捷键切换** — 在 TUI 中按 `Ctrl+S` 可实时切换当前模型的流式/非流式模式（类似 Tab 切换思考模式）
 4. **TUI 状态栏指示器** — 状态栏显示 `streaming: on/off`，首次出现时附带 `(Ctrl+S)` 提示（15 秒后消失）
 5. **与 thinking-mode-refactor / multimodal-image-refactor 兼容** — 同一插入点 L950，不同加载目标
@@ -28,9 +28,10 @@ s && (p.stream = true, p.stream_options = { include_usage: true });
 与思考模式的 Tab 切换类似，流式模式支持 `Ctrl+S` 快捷键实时切换：
 
 - **Ctrl+S** — 在当前模型支持流式模式切换时，切换流式/非流式状态
-- 仅当当前模型匹配 `nonStreamModels` 规则时快捷键生效（即 `isSupported` 为 true）
+- 只要当前模型名是合法字符串，快捷键就生效（即 `isSupported` 为 true）
+- 模型的默认 on/off 状态由 `forceNonStream` / `nonStreamModels` 配置决定
 - 切换为运行时覆盖，不影响配置文件中的默认规则
-- 模型切换时自动重置为配置文件的默认状态
+- 运行时覆盖按模型分别保存在当前会话中：切换到其他模型不会串用状态，切回原模型时会保留该模型的覆盖状态
 
 ### TUI 指示器
 
@@ -39,7 +40,7 @@ s && (p.stream = true, p.stream_options = { include_usage: true });
 - 流式开启：`| streaming: on`（前景色）
 - 流式关闭：`| streaming: off`（黄色）
 - 首次出现时附带 `(Ctrl+S)` 提示，15 秒后自动消失（与思考模式提示行为一致）
-- 仅当当前模型匹配 `nonStreamModels` 规则时显示指示器
+- 只要当前模型名是合法字符串，就显示指示器；默认 on/off 状态由配置决定
 
 ## 配置文件
 
