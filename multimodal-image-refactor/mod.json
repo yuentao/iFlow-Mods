@@ -24,5 +24,6 @@
   "includeMap": {
     "multimodal-model-loader.cjs": "core",
     "multimodal-models.json": "~/.iflow"
-  }
+  },
+  "dependsOn": []
 }

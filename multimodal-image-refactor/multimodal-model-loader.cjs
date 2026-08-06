@@ -23,6 +23,10 @@ const CONFIG_PATH = path.join(os.homedir(), '.iflow', 'multimodal-models.json');
  * @param {Function} MultimodalHelperClass - The _4 class (MultimodalHelper)
  */
 function load(MultimodalHelperClass) {
+  if (!MultimodalHelperClass || typeof MultimodalHelperClass !== 'function') return;
+  if (typeof MultimodalHelperClass.isMultimodalModel !== 'function') return;
+  if (!MultimodalHelperClass.prototype) return;
+
   let config;
   try {
     const raw = fs.readFileSync(CONFIG_PATH, 'utf8');
@@ -86,21 +90,37 @@ function load(MultimodalHelperClass) {
 
     // 覆盖 generateImageDescription — 使用用户配置的视觉模型
     MultimodalHelperClass.prototype.generateImageDescription = async function(base64Data, mimeType) {
+      if (!this.isIFlowMode && !this.modelName) {
+        throw new Error('No multimodal model specified for image description');
+      }
+
       const cacheKey = this.generateCacheKey(base64Data, mimeType);
       const cached = MultimodalHelperClass.descriptionCache.get(cacheKey);
       if (cached) return cached;
 
       const prompt = this.createImageAnalysisPrompt();
-      return this._requestWithModel(base64Data, mimeType, prompt, userModel, userConfig, cacheKey);
+      try {
+        return await this._requestWithModel(base64Data, mimeType, prompt, userModel, userConfig, cacheKey);
+      } catch (error) {
+        throw new Error(`Image description error: ${error instanceof Error ? error.message : String(error)}`);
+      }
     };
 
     // 覆盖 generateImageDescriptionFromPrompt — 使用用户配置的视觉模型
     MultimodalHelperClass.prototype.generateImageDescriptionFromPrompt = async function(base64Data, mimeType, customPrompt) {
+      if (!this.isIFlowMode && !this.modelName) {
+        throw new Error('No multimodal model specified for image description');
+      }
+
       const cacheKey = this.generateCacheKey(base64Data, mimeType, customPrompt);
       const cached = MultimodalHelperClass.descriptionCache.get(cacheKey);
       if (cached) return cached;
 
-      return this._requestWithModel(base64Data, mimeType, customPrompt, userModel, userConfig, cacheKey);
+      try {
+        return await this._requestWithModel(base64Data, mimeType, customPrompt, userModel, userConfig, cacheKey);
+      } catch (error) {
+        throw new Error(`Image description error: ${error instanceof Error ? error.message : String(error)}`);
+      }
     };
 
     // 通用请求方法 — 发送图片到视觉模型 API 并获取文字描述

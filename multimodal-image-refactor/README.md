@@ -128,7 +128,8 @@ isMultimodalModel(model) === false
 ```
 
 - 设置后：所有非多模态模型的图片处理都使用 `qwen3-vl-plus`
-- 未设置（空字符串）：回退到 `this.modelName`（原始行为）
+- 该配置会**替换**原始图片描述路由逻辑；原版中基于 iFlow/Aone 模式自动选择默认视觉模型的行为也会被该配置覆盖
+- 未设置（空字符串）：保留原始 `generateImageDescription()` / `generateImageDescriptionFromPrompt()` 方法，不做覆写
 
 **注意**：`descriptionModel` 指定的模型必须与当前 API 端点兼容（同一 baseUrl/apiKey 下可用）。
 
@@ -204,10 +205,11 @@ multimodal-image-refactor（独立安装）:
 
 | 异常场景 | 处理方式 |
 |----------|----------|
+| patch 目标无效（`_4` 缺失或结构不符） | 静默忽略，不进行覆写 |
 | 配置文件不存在 | 静默忽略，纯用默认规则 |
 | JSON 语法错误 | 静默忽略 |
 | multimodalPatterns 正则非法 | console.warn + 跳过该条 |
-| descriptionModel 为空字符串 | 回退到 `this.modelName`（原始行为） |
+| descriptionModel 为空字符串 | 保留原始图片描述方法，不做覆写 |
 | directMultimodal=true + nonMultimodalModels 有内容 | directMultimodal 优先（所有模型都返回 true） |
 
 ## License
