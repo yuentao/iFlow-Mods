@@ -1,0 +1,25 @@
+{
+  "id": "com.gpt54-stream-adapter.mod",
+  "name": "gpt54-stream-adapter",
+  "version": "1.0.0",
+  "type": "replace",
+  "description": "为 gpt-5.4 在 OpenAI Compatible API 下提供专用流式响应解析兼容。",
+  "author": "yuantao",
+  "category": "功能增强",
+  "iflowVersion": "0.5.19",
+  "iflowVersionConstraint": "0.5.19",
+  "icon": "🧩",
+  "tags": [
+    "gpt-5.4",
+    "stream",
+    "openai-compatible",
+    "sse",
+    "adapter"
+  ],
+  "homepage": "",
+  "repository": "",
+  "license": "MIT",
+  "include": [],
+  "includeMap": {},
+  "dependsOn": []
+}
