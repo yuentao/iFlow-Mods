@@ -2,7 +2,7 @@
   "id": "com.streaming-mode-refactor.mod",
   "name": "streaming-mode-refactor",
   "version": "1.0.0",
-  "type": "patch",
+  "type": "replace",
   "description": "将 iFlow 中硬编码的流式响应行为配置化。通过外部 JSON 配置文件指定哪些模型强制使用非流式模式（如 o1/o3/o4 系列推理模型），无需修改源码。支持 forceNonStream 全局开关和 nonStreamModels 正则模式匹配。",
   "author": "yuantao",
   "category": "功能增强",

@@ -91,14 +91,16 @@ function removeStreamFields(requestBody) {
 
 /**
  * Ensure a request body explicitly uses streaming.
+ * Note: do not force stream_options.include_usage here. Some OpenAI-compatible
+ * backends emit a final usage-only chunk with an empty choices array when
+ * include_usage=true, which iFlow's current stream parser treats as invalid.
  * @param {object} requestBody
  */
 function ensureStreamFields(requestBody) {
   requestBody.stream = true;
-  requestBody.stream_options = {
-    ...(requestBody.stream_options && typeof requestBody.stream_options === 'object' ? requestBody.stream_options : {}),
-    include_usage: true
-  };
+  if (requestBody.stream_options && typeof requestBody.stream_options === 'object') {
+    delete requestBody.stream_options;
+  }
 }
 
 /**
