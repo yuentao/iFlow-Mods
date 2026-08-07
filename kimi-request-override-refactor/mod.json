@@ -1,0 +1,31 @@
+{
+  "id": "com.kimi-request-override-refactor.mod",
+  "name": "kimi-request-override-refactor",
+  "version": "1.0.0",
+  "type": "patch",
+  "description": "为 Kimi 模型提供请求参数兼容层。通过外部 JSON 配置按模型名覆盖或删除请求字段，默认适配 kimi-k3 的固定采样参数、thinking 清理与 reasoning_effort 默认值。",
+  "author": "yuantao",
+  "category": "功能增强",
+  "iflowVersion": "0.5.19",
+  "iflowVersionConstraint": "0.5.19",
+  "icon": "🧩",
+  "tags": [
+    "kimi",
+    "kimi-k3",
+    "request-override",
+    "openai-compatible",
+    "reasoning-effort"
+  ],
+  "homepage": "",
+  "repository": "",
+  "license": "MIT",
+  "include": [
+    "kimi-request-override-loader.cjs",
+    "kimi-request-overrides.json"
+  ],
+  "includeMap": {
+    "kimi-request-override-loader.cjs": "core",
+    "kimi-request-overrides.json": "~/.iflow"
+  },
+  "dependsOn": []
+}
