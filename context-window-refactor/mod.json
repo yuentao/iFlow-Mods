@@ -1,0 +1,29 @@
+{
+  "id": "com.context-window-refactor.mod",
+  "name": "context-window-refactor",
+  "version": "2.0.0",
+  "type": "patch",
+  "description": "修复状态栏上下文剩余百分比显示 0% 或计算不准确的问题。让状态栏显示与压缩逻辑一样读取 settings.json 中的 tokensLimit 字段，保持两者一致。",
+  "author": "yuantao",
+  "category": "问题修复",
+  "iflowVersion": "0.5.19",
+  "iflowVersionConstraint": "0.5.19",
+  "icon": "📐",
+  "tags": [
+    "context-window",
+    "tokensLimit",
+    "context-remaining",
+    "percentage",
+    "settings"
+  ],
+  "homepage": "",
+  "repository": "",
+  "license": "MIT",
+  "include": [
+    "context-window-loader.cjs"
+  ],
+  "includeMap": {
+    "context-window-loader.cjs": "core"
+  },
+  "dependsOn": []
+}
