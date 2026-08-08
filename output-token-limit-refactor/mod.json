@@ -1,0 +1,31 @@
+{
+  "id": "com.output-token-limit-refactor.mod",
+  "name": "output-token-limit-refactor",
+  "version": "1.0.0",
+  "type": "patch",
+  "description": "将 iFlow 中硬编码的输出 token 上限表（MOt 函数，未知模型默认 8000、qwen3 默认 8192 等）配置化，通过外部 JSON 按模型正则自定义 max_new_tokens/max_tokens 上限，解决对话中因 token 限制而截断响应的问题。支持 floor（只调高）与 override（强制覆盖）两种模式。",
+  "author": "yuantao",
+  "category": "功能增强",
+  "iflowVersion": "0.5.19",
+  "iflowVersionConstraint": "0.5.19",
+  "icon": "📏",
+  "tags": [
+    "token-limit",
+    "max-tokens",
+    "truncation",
+    "output-limit",
+    "openai-compatible"
+  ],
+  "homepage": "",
+  "repository": "",
+  "license": "MIT",
+  "include": [
+    "output-token-limit-loader.cjs",
+    "output-token-limits.json"
+  ],
+  "includeMap": {
+    "output-token-limit-loader.cjs": "core",
+    "output-token-limits.json": "~/.iflow"
+  },
+  "dependsOn": []
+}

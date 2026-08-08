@@ -1,0 +1,12 @@
+{
+  "version": "1.0.0",
+  "mode": "floor",
+  "defaultLimit": 32768,
+  "modelLimits": [
+    { "pattern": "^qwen3", "limit": 65536 },
+    { "pattern": "^qwen2\\.5", "limit": 32768 },
+    { "pattern": "^deepseek", "limit": 64000 },
+    { "pattern": "^kimi", "limit": 32768 },
+    { "pattern": "^glm-", "limit": 32768 }
+  ]
+}
