@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "sampleIntervalMs": 30000,
+  "warnThresholdMB": 1024,
+  "criticalThresholdMB": 1600,
+  "autoGc": true,
+  "heapSnapshotOnCritical": false,
+  "snapshotDir": "",
+  "snapshotCooldownMs": 300000,
+  "maxSamples": 120,
+  "logWarnCooldownMs": 60000
+}

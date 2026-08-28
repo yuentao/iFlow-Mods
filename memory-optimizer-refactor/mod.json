@@ -1,0 +1,33 @@
+{
+  "id": "com.memory-optimizer-refactor.mod",
+  "name": "memory-optimizer-refactor",
+  "version": "1.0.0",
+  "type": "patch",
+  "description": "为长时间运行的 iFlow CLI 提供内存看门狗与诊断层。周期性采样 RSS/heap，超过告警阈值时节流告警，超过临界阈值时强制 GC（需 --expose-gc）并可选写入 V8 堆快照。提供 global.__iflowMemory API 与可选 /mem 命令（需 command-api-refactor 前置），用于实时查看内存、手动 GC 与导出快照，定位长会话内存膨胀。",
+  "author": "yuantao",
+  "category": "性能优化",
+  "iflowVersion": "0.5.19",
+  "iflowVersionConstraint": "0.5.19",
+  "icon": "🧠",
+  "tags": [
+    "memory",
+    "leak",
+    "heap-snapshot",
+    "gc",
+    "watchdog",
+    "performance",
+    "diagnostics"
+  ],
+  "homepage": "",
+  "repository": "",
+  "license": "MIT",
+  "include": [
+    "memory-optimizer-loader.cjs",
+    "memory-optimizer.json"
+  ],
+  "includeMap": {
+    "memory-optimizer-loader.cjs": "core",
+    "memory-optimizer.json": "~/.iflow"
+  },
+  "dependsOn": []
+}
