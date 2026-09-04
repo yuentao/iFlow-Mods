@@ -127,11 +127,21 @@ isMultimodalModel(model) === false
 }
 ```
 
-- 设置后：所有非多模态模型的图片处理都使用 `qwen3-vl-plus`
-- 该配置会**替换**原始图片描述路由逻辑；原版中基于 iFlow/Aone 模式自动选择默认视觉模型的行为也会被该配置覆盖
-- 未设置（空字符串）：保留原始 `generateImageDescription()` / `generateImageDescriptionFromPrompt()` 方法，不做覆写
+Mod 接管 `generateImageDescription()` / `generateImageDescriptionFromPrompt()`，每次请求按以下顺序解析视觉模型：
 
-**注意**：`descriptionModel` 指定的模型必须与当前 API 端点兼容（同一 baseUrl/apiKey 下可用）。
+| 顺序 | 来源 | 说明 |
+|:---:|------|------|
+| 1 | `descriptionModel` | 用户显式配置，覆盖一切（含 iFlow/Aone 内置路由） |
+| 2 | Aone 内置路由 | `isAoneMode` + ducky baseUrl → `Qwen2.5-VL-72B_aone` |
+| 3 | iFlow 内置路由 | `isIFlowMode` + iflow baseUrl → `qwen3-vl-plus` |
+| 4 | 实例 `modelName` | 构造时传入的模型名 |
+| 5 | settings.json 主模型 | 当前生效的 `modelName`，且需被 `isMultimodalModel()` 判定为多模态 |
+
+全部解析失败时抛出 `No multimodal model specified for image description (set "descriptionModel" ...)`。
+
+**修复的原版缺陷**：`Config.getMultimodalModelName()` 只在 iFlow 官方登录模式下返回 `qwen3-vl-plus`，OpenAI Compatible 模式下返回 `undefined`，导致 `Config.getMultimodalHelper()` 构造出的实例 `modelName === ""`，凡是走该实例的调用（`image_read` 工具、`read_file` 读图片）都会立刻抛出 `No multimodal model specified for image description`。用户在对话中贴图不受影响，因为那条路径由 `convertToOpenAIMessages()` 直接以 `image_url` 传图，不经过 `MultimodalHelper`。第 5 级兜底解决该问题：读取 `~/.iflow/settings.json` 的 `modelName`（5 秒 TTL + mtime 缓存，`/model` 与 API Profile 切换后数秒生效）。
+
+**注意**：解析出的模型必须与当前 API 端点兼容（同一 baseUrl/apiKey 下可用）。
 
 #### Feature 3: directMultimodal 模式
 
@@ -142,6 +152,8 @@ isMultimodalModel(model) === false
 ```
 
 设置后 `isMultimodalModel()` 对所有模型返回 true，图片直接以 `image_url` 格式传递，不再生成文字描述。适用于所有模型实际都支持视觉的场景（如某些 API 代理）。
+
+该开关只作用于 `isMultimodalModel()`，不会跳过 Feature 2 的视觉模型解析 —— `image_read` 工具与 `read_file` 读图片不查 `isMultimodalModel()`，它们始终需要一个可用的视觉模型来生成描述。开启后主模型会被判定为多模态，因此第 5 级兜底可直接把图片发给主模型。
 
 ### 完整配置示例
 
@@ -206,10 +218,12 @@ multimodal-image-refactor（独立安装）:
 | 异常场景 | 处理方式 |
 |----------|----------|
 | patch 目标无效（`_4` 缺失或结构不符） | 静默忽略，不进行覆写 |
-| 配置文件不存在 | 静默忽略，纯用默认规则 |
-| JSON 语法错误 | 静默忽略 |
+| 配置文件不存在 | 识别规则回退原始硬编码；视觉模型解析仍生效 |
+| JSON 语法错误 | 同上，按空配置处理 |
 | multimodalPatterns 正则非法 | console.warn + 跳过该条 |
-| descriptionModel 为空字符串 | 保留原始图片描述方法，不做覆写 |
+| descriptionModel 为空字符串 | 按解析链依次回退，最终兜底 settings.json 主模型 |
+| settings.json 缺失或主模型非多模态 | 抛出 `No multimodal model specified ...`，提示配置 `descriptionModel` |
+| image_read 未传 prompt | 回退使用内置 `createImageAnalysisPrompt()` |
 | directMultimodal=true + nonMultimodalModels 有内容 | directMultimodal 优先（所有模型都返回 true） |
 
 ## License
