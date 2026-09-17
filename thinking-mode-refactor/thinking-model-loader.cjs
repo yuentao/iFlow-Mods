@@ -259,6 +259,18 @@ function load(adapter) {
 
   if (!config || !Array.isArray(config.models)) return;
 
+  // Config rules must take precedence over built-in rules.
+  // getModelCapability() returns the FIRST match in Map insertion order, and
+  // built-in rules are registered in the constructor (i.e. always first).
+  // Without reordering, a narrow config rule like "^glm-5.3" would never fire
+  // because the broader built-in "glm-5" matches earlier.
+  // Strategy: snapshot built-ins → clear → register config rules → append
+  // built-ins back (skipping keys already overridden by config).
+  const builtinCaps = adapter.modelCapabilities instanceof Map
+    ? new Map(adapter.modelCapabilities)
+    : null;
+  if (builtinCaps) adapter.modelCapabilities.clear();
+
   let loadedCount = 0;
   for (const rule of config.models) {
     try {
@@ -276,8 +288,16 @@ function load(adapter) {
     }
   }
 
+  if (builtinCaps) {
+    for (const [key, cap] of builtinCaps) {
+      if (!adapter.modelCapabilities.has(key)) {
+        adapter.modelCapabilities.set(key, cap);
+      }
+    }
+  }
+
   if (loadedCount > 0) {
-    console.log(`[ThinkingModel] Loaded ${loadedCount} model rules from ${CONFIG_PATH}`);
+    console.log(`[ThinkingModel] Loaded ${loadedCount} model rules from ${CONFIG_PATH} (config rules take precedence over built-ins)`);
   }
 }
 

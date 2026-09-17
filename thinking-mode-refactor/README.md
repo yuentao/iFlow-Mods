@@ -6,7 +6,7 @@
 
 在 iFlow 原版中，`ThinkingModelAdapter`（单例 A2）内部硬编码了 12 条模型规则，定义哪些模型支持思考模式（Thinking Mode）、推理级别、Max Tokens 及请求参数配置。当用户切换思考开关或选择不同的推理级别时，TUI 组件通过 `A2.supportsThinking(model)` 感知模型能力。
 
-本 Mod 在 `A2` 初始化后插入一行加载代码，从 `~/.iflow/thinking-models.json` 读取用户定义的规则，通过 `registerModel()` 注入，用户规则与内置规则以 pattern 为 key 合并（同 pattern 覆盖，异 pattern 追加）。
+本 Mod 在 `A2` 初始化后插入一行加载代码，从 `~/.iflow/thinking-models.json` 读取用户定义的规则，通过 `registerModel()` 注入，用户规则与内置规则以 pattern 为 key 合并（同 pattern 覆盖，异 pattern 用户规则优先匹配）。
 
 ## 架构
 
@@ -126,10 +126,14 @@ interface ModelRule {
 ```
 1. A2 = new Dqe() → initializeModelCapabilities() → 注册内置 12 条默认规则
 2. load(A2) → 从 ~/.iflow/thinking-models.json 加载用户规则
-3. registerModel 以 pattern.source 为 key 存入 Map
+3. 快照内置规则 → 清空 Map → 先注册用户规则 → 再追加未被覆盖的内置规则
    同 pattern → 用户规则完全替换默认
-   异 pattern → 追加到规则列表
+   异 pattern → 用户规则排在内置规则之前
 ```
+
+> **匹配优先级**：`getModelCapability()` 按 Map 插入顺序返回**首个命中**的规则。
+> 用户规则先注册，因此优先于内置规则匹配——窄规则（如 `^glm-5\.3`）不会再被
+> 宽泛内置规则（如 `glm-5`）截胡。配置文件内部仍按数组顺序匹配，越靠前优先级越高。
 
 ## 边界防护
 
