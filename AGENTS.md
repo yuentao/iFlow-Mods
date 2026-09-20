@@ -6,7 +6,9 @@ iFlowMods 是 iFlow CLI 的 Mod（补丁/插件）开发仓库。iFlow CLI 是�
 
 本仓库的目的是**对 iFlow CLI 的硬编码逻辑进行解耦重构与兼容适配**，通过极小的源码改动（1 行逗号表达式插入或单函数体替换）+ 外部加载器模块 + 外部 JSON 配置文件的组合模式，将硬编码规则外置到用户可编辑的配置中，无需修改源码即可自定义模型行为。
 
-当前仓库共 **11 个 MOD**，覆盖思考模式、多模态、流式、命令注册、API/模型切换、请求参数覆盖、输出/上下文 token 限制、特定模型流式适配、流式 tool_calls 重组修复等场景。
+当前仓库共 **8 个 MOD**，覆盖思考模式、多模态、请求参数覆盖、输出/上下文 token 限制、模型命令重构、内存看门狗、流式 tool_calls 重组修复等场景。
+
+> 已移除的 MOD：`streaming-mode-refactor`、`command-api-refactor`、`api-command-refactor`、`gpt54-stream-adapter` 已从仓库删除（历史提交可查），本文档不再描述其实现。
 
 ## 仓库结构
 
@@ -14,7 +16,7 @@ iFlowMods 是 iFlow CLI 的 Mod（补丁/插件）开发仓库。iFlow CLI 是�
 J:\git\iFlowMods\
 ├── iflow.js.original          ← iFlow CLI v0.5.19 原始源码（7723行，压缩混淆）
 ├── README.md                  ← 仓库总览文档
-├── MOD提示词.txt               ← 交互历史中的用户提示词记录
+├── empty-command-error-analysis.md ← 「Internal Error: 命令不能为空」根因分析
 ├── .gitignore                 ← Git 忽略规则（排除 .original、dist、node_modules 等）
 ├── AGENTS.md                  ← 本文件
 │
@@ -31,22 +33,6 @@ J:\git\iFlowMods\
 │   ├── code.js / mod.json / README.md / multimodal-image-refactor-plan.md
 │   ├── multimodal-model-loader.cjs ← 加载器（静态方法覆盖 + 实例方法覆盖）
 │   ├── multimodal-models.json ← 用户配置模板（模型列表 + descriptionModel）
-│   └── dist/
-│
-├── streaming-mode-refactor/   ← MOD: 流式响应配置化（patch, A2 monkey-patch）
-│   ├── code.js / mod.json / README.md
-│   ├── streaming-model-loader.cjs ← 加载器（monkey-patch configure*Request）
-│   ├── streaming-models.json  ← 用户配置模板（forceNonStream + nonStreamModels）
-│   └── dist/
-│
-├── command-api-refactor/      ← MOD: 命令注册 API 框架（replace）
-│   ├── code.js / code_backup.js / mod.json / README.md / command-api-refactor-plan.md
-│   ├── command-registry-loader.cjs ← 加载器（registerCommand/registerSlashCommand API）
-│   └── dist/
-│
-├── api-command-refactor/      ← MOD: /api Profile 切换命令（patch, 依赖 command-api）
-│   ├── code.js / mod.json / README.md / api-command-refactor-plan.md
-│   ├── api-command-loader.cjs ← 加载器（/api 命令处理逻辑）
 │   └── dist/
 │
 ├── model-command-refactor/    ← MOD: /model 命令重构（replace）
@@ -70,9 +56,10 @@ J:\git\iFlowMods\
 │   ├── context-window-loader.cjs ← settings.json 读取器（TTL + mtime 缓存）
 │   └── dist/                  ← 注：无自有配置文件，复用 settings.json 的 tokensLimit
 │
-├── gpt54-stream-adapter/      ← MOD: gpt-5.4 专用流式解析（replace）
+├── memory-optimizer-refactor/ ← MOD: 内存看门狗与诊断层（patch, L950，无加载目标）
 │   ├── code.js / mod.json / README.md
-│   └── dist/                  ← 注：无 loader 与配置文件，逻辑内嵌 code.js
+│   ├── memory-optimizer-loader.cjs ← 加载器（RSS/heap 采样 + 分级阈值 + 强制 GC/堆快照）
+│   └── memory-optimizer.json  ← 用户配置模板（阈值/采样间隔/快照开关）
 │
 └── stream-toolcall-repair-refactor/ ← MOD: 流式 tool_calls 重组修复（patch, 方法体委托）
     ├── code.js / mod.json / README.md
@@ -92,11 +79,11 @@ J:\git\iFlowMods\
 
 **插入点原理**：L950 是 `Dqe`（ThinkingModelAdapter）类和 `_4`（MultimodalHelper）类的闭包结束位置。逗号表达式 `require('./xxx-loader.cjs').load(target)` 返回 `undefined`，不影响原有赋值和闭包结构。
 
-> **例外**：`context-window-refactor` 不经过 L950，而是精准替换 `JR()` 函数体（插入 1 句）；`gpt54-stream-adapter` 为 `replace` 类型，逻辑内嵌，无 loader。
+> **例外**：`context-window-refactor` 不经过 L950，而是精准替换 `JR()` 函数体（插入 1 句）；`stream-toolcall-repair-refactor` 同样不经 L950，改为在 `parseStreamResponse` 方法体开头插入委托调用（见下节）。
 
 ### monkey-patch configure*Request 模式
 
-多个 patch MOD（streaming、kimi-request-override、output-token-limit）都通过 `load(A2)` 包装 `A2.configureThinkingRequest` 与 `A2.configureNonThinkingRequest` 两个方法，在请求体生成后按模型名匹配规则修改请求。它们各自独立包装同一对方法，互不冲突，可叠加共存。
+两个 patch MOD（kimi-request-override、output-token-limit）都通过 `load(A2)` 包装 `A2.configureThinkingRequest` 与 `A2.configureNonThinkingRequest` 两个方法，在请求体生成后按模型名匹配规则修改请求。它们各自独立包装同一对方法，互不冲突，可叠加共存。
 
 ### 方法体委托模式（stream-toolcall-repair）
 
@@ -110,7 +97,7 @@ loader 导出与原型同名的实现（`this` 即原实例），返回 async ge
 
 ### ESM wrapper + 懒加载模式
 
-部分 MOD（command-api-refactor、api-command-refactor、streaming-mode-refactor）需要在 `code.js` 顶部增加 ESM wrapper，使压缩混淆的 CommonJS 代码能在 ESM 环境下工作：
+当前仓库全部 8 个 MOD 的 `code.js` 顶部**已自带** ESM wrapper，使压缩混淆的 CommonJS 代码能在 ESM 环境下工作，无需额外添加：
 
 ```javascript
 import { createRequire } from 'module';
@@ -119,7 +106,7 @@ globalThis.__filename = require('url').fileURLToPath(import.meta.url);
 globalThis.__dirname = require('path').dirname(globalThis.__filename);
 ```
 
-> 注：iFlow 原始 `code.js` 部分版本已自带 ESM wrapper（如 output-token-limit-refactor 说明其无需额外添加）。
+> 注：新增 MOD 时以 `iflow.js.original` 为基准生成 `code.js`；若源文件缺少该 wrapper 需手动补上。
 
 同时如需避免阻塞，在 ESM wrapper 后添加懒加载入口：
 
@@ -139,33 +126,29 @@ global.__loadXxx=function(){
 原始:     },A2=new Dqe});function Pln(){...
 单MOD:    },A2=new Dqe,require('./loader.cjs').load(target)});function Pln(){...
 双MOD:    },A2=new Dqe,require('./thinking-model-loader.cjs').load(A2),require('./multimodal-model-loader.cjs').load(_4)});
-多MOD:    },A2=new Dqe,require('./thinking-model-loader.cjs').load(A2),require('./streaming-model-loader.cjs').load(A2),require('./output-token-limit-loader.cjs').load(A2),require('./kimi-request-override-loader.cjs').load(A2),require('./multimodal-model-loader.cjs').load(_4),require('./api-command-loader.cjs').load(A2)});
+多MOD:    },A2=new Dqe,require('./thinking-model-loader.cjs').load(A2),require('./output-token-limit-loader.cjs').load(A2),require('./kimi-request-override-loader.cjs').load(A2),require('./memory-optimizer-loader.cjs').load(),require('./multimodal-model-loader.cjs').load(_4)});
 ```
 
 ### MOD 类型
 
 | 类型 | 说明 | 示例 |
 |------|------|------|
-| `patch` | 最小改动，1行插入或单函数体替换 | thinking, multimodal, streaming, api-command, kimi-request-override, output-token-limit, context-window, stream-toolcall-repair |
-| `replace` | 整体替换源码 | model-command, command-api, gpt54-stream-adapter |
+| `patch` | 最小改动，1行插入或单函数体替换 | thinking, multimodal, kimi-request-override, output-token-limit, context-window, memory-optimizer, stream-toolcall-repair |
+| `replace` | 整体替换源码 | model-command |
 
 ## MOD 依赖关系
 
 ```
-command-api-refactor (replace, 基础架构)
-  └─ api-command-refactor (patch, 依赖前者提供 registerCommand API)
-
 A2 系（共用 L950 插入点，monkey-patch 或 registerModel）:
   thinking-mode-refactor        (registerModel)
-  streaming-mode-refactor       (configure*Request)
   kimi-request-override-refactor(configure*Request)
   output-token-limit-refactor   (configure*Request)
 multimodal-image-refactor (patch, _4) — 独立加载目标
+memory-optimizer-refactor (patch, L950，无加载目标；/mem 命令需外部 command-api 框架)
 
 独立/replace:
   context-window-refactor (patch, JR 函数体，不经 L950)
   model-command-refactor  (replace)
-  gpt54-stream-adapter    (replace, 逻辑内嵌)
   stream-toolcall-repair-refactor (patch, 方法体委托，不经 L950)
 ```
 
@@ -184,7 +167,7 @@ multimodal-image-refactor (patch, _4) — 独立加载目标
 | `JR(model, settingsLimit)` | — | 上下文窗口计算函数；context-window-refactor 替换其函数体 |
 | 状态栏显示 | L6217 | `JR(t)` 调用（未传 settingsLimit），context-window 修复的显示路径 |
 | 压缩阈值 | L3358/L3436/L6475 | `JR(t, settingsLimit)` 调用（已传 tokensLimit） |
-| `parseStreamResponse` | L961-L962 | OpenAI Content Generator 流式解析器；gpt54-adapter 新增旁路；stream-toolcall-repair 方法体委托接管 |
+| `parseStreamResponse` | L961-L962 | OpenAI Content Generator 流式解析器；stream-toolcall-repair 方法体委托接管 |
 
 ### 图片处理分支逻辑（convertToOpenAIMessages 内）
 
@@ -221,28 +204,6 @@ else
 **三大功能**：isMultimodalModel() 配置化、视觉模型路由配置化（`descriptionModel`，核心）、directMultimodal 强制直传。
 
 **匹配优先级**：directMultimodal > nonMultimodalModels > multimodalModels > multimodalPatterns > 原始硬编码。
-
-### streaming-mode-refactor
-
-**目标**：将流式响应硬编码行为配置化。monkey-patch `A2.configure*Request`，匹配规则则删除 `stream`/`stream_options` 字段。
-
-**功能**：nonStreamModels 正则配置、forceNonStream 全局开关、Ctrl+S 运行时切换（非持久化）、TUI 状态栏 `streaming: on/off` 指示器。
-
-**配置文件**：`~/.iflow/streaming-models.json`。匹配逻辑：forceNonStream > nonStreamModels 正则 > 默认流式。
-
-### command-api-refactor
-
-**目标**：命令注册 API 框架，使外部 MOD 通过全局 API 动态注册 TUI slash 命令和 CLI 命令。`type: "replace"`。
-
-**核心 API**（global 上）：`registerSlashCommand` / `unregisterSlashCommand` / `getSlashCommands` / `registerCommand` / `unregisterCommand`。
-
-**自动加载机制**：`load()` 中自动搜索并加载 `api-command-loader.cjs` 等依赖 loader。无依赖，其他 MOD 可依赖此框架。
-
-### api-command-refactor
-
-**目标**：添加 `/api` 命令，在 TUI 中切换 API Profile。**依赖** `com.command-api-refactor.mod`。
-
-**功能**：`/api --list` 列出 Profile；`/api <name>` 切换；从 `~/.iflow/settings.json` 的 `apiProfiles` 读取；切换时更新 `currentApiProfile`/`baseUrl`/`apiKey`/`modelName`。仅支持选择，Profile 管理由外部工具 iFlow-Settings-Editor-GUI 负责。
 
 ### model-command-refactor
 
@@ -288,13 +249,21 @@ else
 
 **运行时 API**：`readTokensLimit()`（5 秒 TTL + mtime 缓存，改后数秒生效，无需重启）。
 
-### gpt54-stream-adapter
+### memory-optimizer-refactor
 
-**目标**：为 `gpt-5.4`（OpenAI Compatible API）提供专用 SSE 流式解析，解决推理内容、思考签名、增量工具调用等字段无法被识别的兼容问题。`type: "replace"`，逻辑内嵌，无 loader/配置。
+**目标**：为长时间运行的 iFlow CLI 提供内存看门狗与诊断层，定位并缓解「用久了内存缓慢膨胀」问题。聚焦「可观测 + 缓解」而非裁剪历史（历史数组在模块闭包类 `k4e` 内，patch 插入点无法安全触达，裁剪需 `replace` 型 MOD）。
 
-**核心变更**：新增 `parseGpt54CompatibleStream` 解析器，`generateContentStream` 中通过 `isGpt54StreamModel()`（正则 `/^gpt-5\.4(?:$|[-.:])/i`）路由：匹配走专用解析器，其余走原有 `parseStreamResponse`。
+**加载目标**：无（`load()` 不依赖 A2/_4，仅初始化自身），在 L950 插入 `require('./memory-optimizer-loader.cjs').load()`。
 
-**处理字段**：`reasoning_content`→思考块、`signature`→thoughtSignature、`content`→文本块、`tool_calls`→functionCall、`finish_reason`→finishReason、`usage`→usageMetadata、`[DONE]` 终止。日志前缀 `[gpt54-stream-adapter]`。
+**功能**：周期采样 RSS/heap 写入环形缓冲（默认 30s / 120 条）；`warnThresholdMB`（默认 1024）节流告警；`criticalThresholdMB`（默认 1600）触发 `autoGc`（需 `--expose-gc`）与可选 `heapSnapshotOnCritical`（`v8.writeHeapSnapshot`，冷却默认 5 分钟）。采样定时器 `unref()`，不阻止进程正常退出。
+
+**配置文件**：`~/.iflow/memory-optimizer.json`。`enabled` / `sampleIntervalMs` / `warnThresholdMB` / `criticalThresholdMB` / `autoGc` / `heapSnapshotOnCritical` / `snapshotDir` / `snapshotCooldownMs` / `maxSamples` / `logWarnCooldownMs`。
+
+**运行时 API**（global）：`__iflowMemory.stats()` / `.gc()` / `.snapshot([dir])` / `.getSamples()` / `.start()` / `.stop()`。
+
+**`/mem` 命令**：检测到 `global.registerSlashCommand` 时自动注册（`/mem`、`/mem gc`、`/mem snapshot`）。该框架由已移除的 `command-api-refactor` 提供，未安装时命令跳过注册，其余功能不受影响。
+
+**日志前缀**：`[MemoryOptimizer]`。
 
 ### stream-toolcall-repair-refactor
 
@@ -318,18 +287,15 @@ else
 | MOD | 加载目标 | 类型 | 插入点 | 共存说明 |
 |:---|:---|:---:|:---:|:---|
 | thinking-mode-refactor | A2 (registerModel) | patch | L950 | ✓ 与所有 A2/其他系 |
-| streaming-mode-refactor | A2 (configure*Request) | patch | L950 | ✓ 独立包装同一方法 |
 | kimi-request-override-refactor | A2 (configure*Request) | patch | L950 | ✓ 独立包装同一方法 |
 | output-token-limit-refactor | A2 (configure*Request) | patch | L950 | ✓ 独立包装同一方法 |
 | multimodal-image-refactor | \_4 (class) | patch | L950 | ✓ 独立加载目标 |
-| api-command-refactor | A2 + global API | patch | L950 | 需 command-api-refactor 前置 |
+| memory-optimizer-refactor | (无，自初始化) | patch | L950 | ✓ 独立 load()，与所有 MOD 正交 |
 | context-window-refactor | JR 函数体 | patch | JR() | ✓ 不经 L950，与 output-token 正交互补 |
-| command-api-refactor | (replace) | replace | — | 独立，可与 patch 共存 |
 | model-command-refactor | (replace) | replace | — | 独立替换 |
-| gpt54-stream-adapter | (replace, 内嵌) | replace | — | 独立替换 |
 | stream-toolcall-repair-refactor | (方法体委托) | patch | parseStreamResponse | ✓ 不经 L950，与所有 patch/replace MOD 正交 |
 
-> `replace` 类 MOD 之间因整体替换源码，通常互斥，同时只能启用一个（除非手动合并）。stream-toolcall-repair 的委托语句位于 `parseStreamResponse` 方法体内，若与整体替换该区域的 replace 型 MOD（gpt54-stream-adapter）合用，需手动把委托语句合并进替换版方法。
+> `replace` 类 MOD 之间因整体替换源码，通常互斥，同时只能启用一个（除非手动合并）。stream-toolcall-repair 的委托语句位于 `parseStreamResponse` 方法体内，若与整体替换该区域的 replace 型 MOD 合用，需手动把委托语句合并进替换版方法。
 
 ## 构建与安装
 
@@ -344,7 +310,8 @@ else
 3. 对于 `replace` 类型 MOD，用 `code.js` 替换原 `iflow.js`
 4. 对于 L950 型 `patch` MOD，找到 `},A2=new Dqe});`，插入对应的 require 语句
 5. 对于 `context-window-refactor`，改为替换 `JR()` 函数体（见其 README）
-6. 重启 iFlow
+6. 对于 `stream-toolcall-repair-refactor`，改为在 `parseStreamResponse` 方法体开头插入委托调用（见其 README）
+7. 重启 iFlow
 
 ### mod.json includeMap
 
@@ -355,21 +322,21 @@ else
 }
 ```
 
-> `context-window-refactor` 仅 include loader（复用 settings.json）；`gpt54-stream-adapter` include 为空（逻辑内嵌）。
+> `context-window-refactor` 仅 include loader（复用 settings.json）；`model-command-refactor` 为 replace 型，改用 `entry: "code.js"` 声明入口，无 loader/配置。
 
 ## 开发约定
 
 - **源码改动极小**：patch 类型 MOD 仅修改 1 行或单函数体，不改变原有闭包结构
 - **加载器模块**：使用 CommonJS（`.cjs`），导出 `{ load }` 函数（context-window 导出 `readTokensLimit`）
-- **ESM wrapper**：`replace` 类型和部分 `patch` 类型需在 `code.js` 顶部添加 ESM import 以支持 `require()`（部分原始 code.js 已自带）
+- **ESM wrapper**：当前全部 MOD 的 `code.js` 顶部已自带 ESM import（`createRequire`），新增 MOD 时若源文件缺少需手动补上
 - **懒加载**：复杂 MOD 使用 `global.__loadXxx` 懒加载机制，避免启动阻塞
 - **配置文件**：JSON 格式，放置在 `~/.iflow/`，加载失败时静默回退到默认规则
 - **monkey-patch 约定**：修改 `configure*Request` 的 MOD 需保存原方法并调用，独立包装以支持叠加
 - **defineProperty 劫持**：当目标字段在 configure 之后被赋值时，用 getter/setter 拦截（见 output-token-limit）
-- **全局 API**：命令注册框架使用 `global.*` 暴露 API，供依赖 MOD 调用
+- **全局 API**：MOD 通过 `global.*` 暴露运行时 API（如 `__iflowMemory`）；`/mem` 等 slash 命令依赖外部命令注册框架（`global.registerSlashCommand`），缺失时静默跳过注册
 - **变量命名**：源码用混淆名（`_4`, `A2`, `Dqe`, `MOt`, `JR`），加载器用语义名
 - **错误处理**：配置不存在/语法错误 → 静默回退默认；正则非法 → console.warn + 子串匹配
-- **日志**：使用 `[ThinkingModel]` / `[MultimodalModel]` / `[StreamingMode]` / `[CommandAPI]` / `[ApiCommand]` / `[KimiOverride]` / `[OutputTokenLimit]` / `[ContextWindow]` / `[gpt54-stream-adapter]` / `[StreamToolCallRepair]` 前缀
+- **日志**：使用 `[ThinkingModel]` / `[MultimodalModel]` / `[KimiOverride]` / `[OutputTokenLimit]` / `[ContextWindow]` / `[MemoryOptimizer]` / `[StreamToolCallRepair]` 前缀
 
 ## 环境信息
 
