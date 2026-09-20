@@ -6,7 +6,7 @@ iFlowMods 是 iFlow CLI 的 Mod（补丁/插件）开发仓库。iFlow CLI 是�
 
 本仓库的目的是**对 iFlow CLI 的硬编码逻辑进行解耦重构与兼容适配**，通过极小的源码改动（1 行逗号表达式插入或单函数体替换）+ 外部加载器模块 + 外部 JSON 配置文件的组合模式，将硬编码规则外置到用户可编辑的配置中，无需修改源码即可自定义模型行为。
 
-当前仓库共 **10 个 MOD**，覆盖思考模式、多模态、流式、命令注册、API/模型切换、请求参数覆盖、输出/上下文 token 限制、特定模型流式适配等场景。
+当前仓库共 **11 个 MOD**，覆盖思考模式、多模态、流式、命令注册、API/模型切换、请求参数覆盖、输出/上下文 token 限制、特定模型流式适配、流式 tool_calls 重组修复等场景。
 
 ## 仓库结构
 
@@ -70,9 +70,14 @@ J:\git\iFlowMods\
 │   ├── context-window-loader.cjs ← settings.json 读取器（TTL + mtime 缓存）
 │   └── dist/                  ← 注：无自有配置文件，复用 settings.json 的 tokensLimit
 │
-└── gpt54-stream-adapter/      ← MOD: gpt-5.4 专用流式解析（replace）
+├── gpt54-stream-adapter/      ← MOD: gpt-5.4 专用流式解析（replace）
+│   ├── code.js / mod.json / README.md
+│   └── dist/                  ← 注：无 loader 与配置文件，逻辑内嵌 code.js
+│
+└── stream-toolcall-repair-refactor/ ← MOD: 流式 tool_calls 重组修复（patch, 方法体委托）
     ├── code.js / mod.json / README.md
-    └── dist/                  ← 注：无 loader 与配置文件，逻辑内嵌 code.js
+    ├── stream-toolcall-repair-loader.cjs ← 加载器（修复版 SSE 解析器，委托接管）
+    └── stream-toolcall-repair.json ← 用户配置模板（onParseError / repairTruncatedJson / modelPatterns）
 ```
 
 ## 核心设计模式
@@ -92,6 +97,16 @@ J:\git\iFlowMods\
 ### monkey-patch configure*Request 模式
 
 多个 patch MOD（streaming、kimi-request-override、output-token-limit）都通过 `load(A2)` 包装 `A2.configureThinkingRequest` 与 `A2.configureNonThinkingRequest` 两个方法，在请求体生成后按模型名匹配规则修改请求。它们各自独立包装同一对方法，互不冲突，可叠加共存。
+
+### 方法体委托模式（stream-toolcall-repair）
+
+当补丁目标（如 `parseStreamResponse`，OpenAIContentGenerator 类方法）位于模块闭包内、无法从 L950 作用域拿到类引用时，改为在**目标方法体开头**插入一句委托调用：
+
+```javascript
+async*parseStreamResponse(e){try{let __rep=require('./stream-toolcall-repair-loader.cjs');if(__rep&&typeof __rep.parseStreamResponse==="function"){let __gen=__rep.parseStreamResponse.call(this,e);if(__gen)return yield*__gen}}catch(__re){}if(!e.body)throw...
+```
+
+loader 导出与原型同名的实现（`this` 即原实例），返回 async generator 接管，或返回 `null` 让原始方法体继续执行。特点：不经过 L950、与其他 MOD 零冲突；loader 缺失/禁用时静默回退，code.js 单独使用也安全。
 
 ### ESM wrapper + 懒加载模式
 
@@ -131,7 +146,7 @@ global.__loadXxx=function(){
 
 | 类型 | 说明 | 示例 |
 |------|------|------|
-| `patch` | 最小改动，1行插入或单函数体替换 | thinking, multimodal, streaming, api-command, kimi-request-override, output-token-limit, context-window |
+| `patch` | 最小改动，1行插入或单函数体替换 | thinking, multimodal, streaming, api-command, kimi-request-override, output-token-limit, context-window, stream-toolcall-repair |
 | `replace` | 整体替换源码 | model-command, command-api, gpt54-stream-adapter |
 
 ## MOD 依赖关系
@@ -151,6 +166,7 @@ multimodal-image-refactor (patch, _4) — 独立加载目标
   context-window-refactor (patch, JR 函数体，不经 L950)
   model-command-refactor  (replace)
   gpt54-stream-adapter    (replace, 逻辑内嵌)
+  stream-toolcall-repair-refactor (patch, 方法体委托，不经 L950)
 ```
 
 ## 源码关键位置（iflow.js.original）
@@ -168,7 +184,7 @@ multimodal-image-refactor (patch, _4) — 独立加载目标
 | `JR(model, settingsLimit)` | — | 上下文窗口计算函数；context-window-refactor 替换其函数体 |
 | 状态栏显示 | L6217 | `JR(t)` 调用（未传 settingsLimit），context-window 修复的显示路径 |
 | 压缩阈值 | L3358/L3436/L6475 | `JR(t, settingsLimit)` 调用（已传 tokensLimit） |
-| `parseStreamResponse` | — | OpenAI Content Generator 流式解析器；gpt54-adapter 新增旁路 |
+| `parseStreamResponse` | L961-L962 | OpenAI Content Generator 流式解析器；gpt54-adapter 新增旁路；stream-toolcall-repair 方法体委托接管 |
 
 ### 图片处理分支逻辑（convertToOpenAIMessages 内）
 
@@ -280,6 +296,23 @@ else
 
 **处理字段**：`reasoning_content`→思考块、`signature`→thoughtSignature、`content`→文本块、`tool_calls`→functionCall、`finish_reason`→finishReason、`usage`→usageMetadata、`[DONE]` 终止。日志前缀 `[gpt54-stream-adapter]`。
 
+### stream-toolcall-repair-refactor
+
+**目标**：修复流式（SSE）`tool_calls` 增量重组缺陷（根因分析见 `empty-command-error-analysis.md`）：扩展强制 `--stream` 时，sensenova 等模型 `run_shell_command` 反复报「Internal Error: 命令不能为空」（TUI 非流式路径正常）。
+
+**机制**：方法体委托（不经 L950）。在 `parseStreamResponse` 方法体开头插入 1 句委托调用；loader 接管时 `yield*` 委托给修复版解析器，loader 缺失/禁用/模型不匹配时静默回退原始实现。
+
+**三项修复**（对应报告 §3.3 缺陷①②③）：
+1. 重组按 OpenAI 规范 `index` 对齐（byIndex/byId 双映射），id 缺失分片正确归属，并行多调用分离；id/name 延迟到达补全 entry，部分卡每调用只发一次；无 id 时 finish 生成 `call_` 兜底 id
+2. `JSON.parse` 失败默认 `drop` 坏调用（可选 `empty` 恢复旧的 `args:{}` 兜底）；arguments 空串属合法无参调用 → `{}`
+3. 可选 `repairTruncatedJson` 本地闭合修复（闭合字符串/丢悬空键/补 null/补括号，仅 parse 失败后尝试）
+
+**配置文件**：`~/.iflow/stream-toolcall-repair.json`（热重载 5 秒 TTL）。`enabled` / `modelPatterns`（空=全部模型）/ `onParseError` / `repairTruncatedJson` / `dropEmptyArgs` / `logDropped`。
+
+**运行时 API**（global）：`getStreamToolCallRepairConfig()` / `updateStreamToolCallRepairConfig()` / `reloadStreamToolCallRepairConfig()` / `shouldRepairStreamModel()`。
+
+**验证**：插入点唯一；code.js 往返替换与 original 逐字节一致；29 项模拟 SSE 单测通过（规范/无 id/并行交叉分片、坏 JSON 丢弃、截断修复、透传等价性）。日志前缀 `[StreamToolCallRepair]`。
+
 ## 兼容性矩阵
 
 | MOD | 加载目标 | 类型 | 插入点 | 共存说明 |
@@ -294,8 +327,9 @@ else
 | command-api-refactor | (replace) | replace | — | 独立，可与 patch 共存 |
 | model-command-refactor | (replace) | replace | — | 独立替换 |
 | gpt54-stream-adapter | (replace, 内嵌) | replace | — | 独立替换 |
+| stream-toolcall-repair-refactor | (方法体委托) | patch | parseStreamResponse | ✓ 不经 L950，与所有 patch/replace MOD 正交 |
 
-> `replace` 类 MOD 之间因整体替换源码，通常互斥，同时只能启用一个（除非手动合并）。
+> `replace` 类 MOD 之间因整体替换源码，通常互斥，同时只能启用一个（除非手动合并）。stream-toolcall-repair 的委托语句位于 `parseStreamResponse` 方法体内，若与整体替换该区域的 replace 型 MOD（gpt54-stream-adapter）合用，需手动把委托语句合并进替换版方法。
 
 ## 构建与安装
 
@@ -335,7 +369,7 @@ else
 - **全局 API**：命令注册框架使用 `global.*` 暴露 API，供依赖 MOD 调用
 - **变量命名**：源码用混淆名（`_4`, `A2`, `Dqe`, `MOt`, `JR`），加载器用语义名
 - **错误处理**：配置不存在/语法错误 → 静默回退默认；正则非法 → console.warn + 子串匹配
-- **日志**：使用 `[ThinkingModel]` / `[MultimodalModel]` / `[StreamingMode]` / `[CommandAPI]` / `[ApiCommand]` / `[KimiOverride]` / `[OutputTokenLimit]` / `[ContextWindow]` / `[gpt54-stream-adapter]` 前缀
+- **日志**：使用 `[ThinkingModel]` / `[MultimodalModel]` / `[StreamingMode]` / `[CommandAPI]` / `[ApiCommand]` / `[KimiOverride]` / `[OutputTokenLimit]` / `[ContextWindow]` / `[gpt54-stream-adapter]` / `[StreamToolCallRepair]` 前缀
 
 ## 环境信息
 

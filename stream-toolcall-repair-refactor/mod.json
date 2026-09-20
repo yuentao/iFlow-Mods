@@ -1,0 +1,34 @@
+{
+  "id": "com.stream-toolcall-repair-refactor.mod",
+  "name": "stream-toolcall-repair-refactor",
+  "version": "1.0.0",
+  "type": "patch",
+  "description": "修复流式（SSE）响应中 tool_calls 增量重组缺陷：按 OpenAI 规范 index 字段对齐 arguments 分片（兼容不回传 id 的端点），JSON 解析失败时默认丢弃坏调用而非兜底 args:{}（避免空参数进入工具调度导致「Internal Error: 命令不能为空」），并可选本地修复截断 JSON。解决扩展强制 --stream 下 sensenova 等模型 run_shell_command 反复报空命令的问题。",
+  "author": "yuantao",
+  "category": "兼容性修复",
+  "iflowVersion": "0.5.19",
+  "iflowVersionConstraint": "0.5.19",
+  "icon": "🩹",
+  "tags": [
+    "stream",
+    "sse",
+    "tool-calls",
+    "openai-compatible",
+    "acp",
+    "bugfix"
+  ],
+  "homepage": "",
+  "repository": "",
+  "license": "MIT",
+  "include": [
+    "README.md",
+    "stream-toolcall-repair-loader.cjs",
+    "stream-toolcall-repair.json"
+  ],
+  "includeMap": {
+    "stream-toolcall-repair-loader.cjs": "core",
+    "stream-toolcall-repair.json": "~/.iflow",
+    "README.md": ""
+  },
+  "dependsOn": []
+}

@@ -1,0 +1,9 @@
+{
+  "version": "1.0.0",
+  "enabled": true,
+  "modelPatterns": [],
+  "onParseError": "drop",
+  "repairTruncatedJson": true,
+  "dropEmptyArgs": false,
+  "logDropped": true
+}
