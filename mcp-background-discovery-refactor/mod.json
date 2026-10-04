@@ -1,0 +1,32 @@
+{
+  "id": "com.mcp-background-discovery-refactor.mod",
+  "name": "mcp-background-discovery-refactor",
+  "version": "1.0.0",
+  "type": "patch",
+  "description": "修复 --experimental-acp 下 MCP 服务器同步启动阻塞 ACP initialize 握手的问题：isNonInteractive 在 ACP 模式为 true，discoverAllTools 走同步 await discoverAllMcpTools() 分支，npx 型服务器在 npm registry 不可达时无超时挂起，握手永久卡死。补丁让 ACP 场景改走 CLI 自带的后台发现路径（与交互 TUI 一致），MCP 工具在连接完成后陆续注册。-p 一次性模式保持原同步行为；IFLOW_MCP_BACKGROUND=0 可退回上游行为。",
+  "author": "yuantao",
+  "category": "兼容性修复",
+  "iflowVersion": "0.5.19",
+  "iflowVersionConstraint": "0.5.19",
+  "icon": "🧩",
+  "tags": [
+    "mcp",
+    "acp",
+    "npx",
+    "startup",
+    "timeout",
+    "bugfix"
+  ],
+  "homepage": "",
+  "repository": "",
+  "license": "MIT",
+  "include": [
+    "README.md",
+    "mcp-background-loader.cjs"
+  ],
+  "includeMap": {
+    "mcp-background-loader.cjs": "core",
+    "README.md": ""
+  },
+  "dependsOn": []
+}
