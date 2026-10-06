@@ -6,7 +6,7 @@ iFlowMods 是 iFlow CLI 的 Mod（补丁/插件）开发仓库。iFlow CLI 是�
 
 本仓库的目的是**对 iFlow CLI 的硬编码逻辑进行解耦重构与兼容适配**，通过极小的源码改动（1 行逗号表达式插入或单函数体替换）+ 外部加载器模块 + 外部 JSON 配置文件的组合模式，将硬编码规则外置到用户可编辑的配置中，无需修改源码即可自定义模型行为。
 
-当前仓库共 **8 个 MOD**，覆盖思考模式、多模态、请求参数覆盖、输出/上下文 token 限制、模型命令重构、内存看门狗、流式 tool_calls 重组修复等场景。
+当前仓库共 **10 个 MOD**，覆盖思考模式、多模态、请求参数覆盖、输出/上下文 token 限制、模型命令重构、内存看门狗、流式 tool_calls 重组修复、ACP MCP 启动握手修复、ACP MCP 进程池共享等场景。
 
 > 已移除的 MOD：`streaming-mode-refactor`、`command-api-refactor`、`api-command-refactor`、`gpt54-stream-adapter` 已从仓库删除（历史提交可查），本文档不再描述其实现。
 
@@ -61,10 +61,18 @@ J:\git\iFlowMods\
 │   ├── memory-optimizer-loader.cjs ← 加载器（RSS/heap 采样 + 分级阈值 + 强制 GC/堆快照）
 │   └── memory-optimizer.json  ← 用户配置模板（阈值/采样间隔/快照开关）
 │
-└── stream-toolcall-repair-refactor/ ← MOD: 流式 tool_calls 重组修复（patch, 方法体委托）
+├── stream-toolcall-repair-refactor/ ← MOD: 流式 tool_calls 重组修复（patch, 方法体委托）
+│   ├── code.js / mod.json / README.md
+│   ├── stream-toolcall-repair-loader.cjs ← 加载器（修复版 SSE 解析器，委托接管）
+│   └── stream-toolcall-repair.json ← 用户配置模板（onParseError / repairTruncatedJson / modelPatterns）
+│
+├── mcp-background-discovery-refactor/ ← MOD: ACP MCP 后台发现（patch, 方法体委托）
+│   ├── code.js / mod.json / README.md
+│   └── mcp-background-loader.cjs ← 加载器（shouldBackground 判定，无自有配置）
+│
+└── mcp-session-share-refactor/ ← MOD: ACP MCP 进程级连接池（patch, 方法体委托）
     ├── code.js / mod.json / README.md
-    ├── stream-toolcall-repair-loader.cjs ← 加载器（修复版 SSE 解析器，委托接管）
-    └── stream-toolcall-repair.json ← 用户配置模板（onParseError / repairTruncatedJson / modelPatterns）
+    └── mcp-session-share-loader.cjs ← 加载器（acquire/settle 连接池，无自有配置）
 ```
 
 ## 核心设计模式
@@ -79,7 +87,7 @@ J:\git\iFlowMods\
 
 **插入点原理**：L950 是 `Dqe`（ThinkingModelAdapter）类和 `_4`（MultimodalHelper）类的闭包结束位置。逗号表达式 `require('./xxx-loader.cjs').load(target)` 返回 `undefined`，不影响原有赋值和闭包结构。
 
-> **例外**：`context-window-refactor` 不经过 L950，而是精准替换 `JR()` 函数体（插入 1 句）；`stream-toolcall-repair-refactor` 同样不经 L950，改为在 `parseStreamResponse` 方法体开头插入委托调用（见下节）。
+> **例外**：`context-window-refactor` 不经过 L950，而是精准替换 `JR()` 函数体（插入 1 句）；`stream-toolcall-repair-refactor` 同样不经 L950，改为在 `parseStreamResponse` 方法体开头插入委托调用（见下节）；`mcp-background-discovery-refactor` 与 `mcp-session-share-refactor` 也不经 L950，分别单点替换 `discoverAllTools` 三元分支与 `discoverAllMcpTools` 方法体（见各自 README）。
 
 ### monkey-patch configure*Request 模式
 
@@ -133,7 +141,7 @@ global.__loadXxx=function(){
 
 | 类型 | 说明 | 示例 |
 |------|------|------|
-| `patch` | 最小改动，1行插入或单函数体替换 | thinking, multimodal, kimi-request-override, output-token-limit, context-window, memory-optimizer, stream-toolcall-repair |
+| `patch` | 最小改动，1行插入或单函数体替换 | thinking, multimodal, kimi-request-override, output-token-limit, context-window, memory-optimizer, stream-toolcall-repair, mcp-background-discovery, mcp-session-share |
 | `replace` | 整体替换源码 | model-command |
 
 ## MOD 依赖关系
@@ -150,6 +158,9 @@ memory-optimizer-refactor (patch, L950，无加载目标；/mem 命令需外部 
   context-window-refactor (patch, JR 函数体，不经 L950)
   model-command-refactor  (replace)
   stream-toolcall-repair-refactor (patch, 方法体委托，不经 L950)
+  mcp-background-discovery-refactor (patch, discoverAllTools 三元分支，不经 L950)
+  mcp-session-share-refactor (patch, discoverAllMcpTools 方法体，不经 L950；与 background 互补：
+      background 把 ACP discovery 后台化，share 在其后台化的并发交叠下用 claim 机制去重 spawn)
 ```
 
 ## 源码关键位置（iflow.js.original）
@@ -168,6 +179,8 @@ memory-optimizer-refactor (patch, L950，无加载目标；/mem 命令需外部 
 | 状态栏显示 | L6217 | `JR(t)` 调用（未传 settingsLimit），context-window 修复的显示路径 |
 | 压缩阈值 | L3358/L3436/L6475 | `JR(t, settingsLimit)` 调用（已传 tokensLimit） |
 | `parseStreamResponse` | L961-L962 | OpenAI Content Generator 流式解析器；stream-toolcall-repair 方法体委托接管 |
+| `discoverAllTools` | McpClientManager 调用方 | isNonInteractive 三元分支；mcp-background-discovery 替换其分支选择 |
+| `discoverAllMcpTools` | McpClientManager | 每会话全量 spawn MCP stdio 链；mcp-session-share 包裹进程级连接池 |
 
 ### 图片处理分支逻辑（convertToOpenAIMessages 内）
 
@@ -282,6 +295,24 @@ else
 
 **验证**：插入点唯一；code.js 往返替换与 original 逐字节一致；29 项模拟 SSE 单测通过（规范/无 id/并行交叉分片、坏 JSON 丢弃、截断修复、透传等价性）。日志前缀 `[StreamToolCallRepair]`。
 
+### mcp-background-discovery-refactor
+
+**目标**：修复 `--experimental-acp` 下 MCP 服务器**同步**启动阻塞 ACP `initialize` 握手的缺陷：`isNonInteractive` 在 ACP 模式为 true，`discoverAllTools` 走同步 `await discoverAllMcpTools()` 分支，npx 型服务器在 npm registry 不可达时无超时挂起，握手永久卡死（交互 TUI 反而走后台分支不受影响）。
+
+**机制**：方法体委托（不经 L950）。单点替换 `discoverAllTools` 的三元分支：ACP 场景改走 CLI 自带的 `startMcpDiscoveryInBackground()`（fire-and-forget，与 TUI 行为一致），`-p` 一次性模式保持原同步行为。`IFLOW_MCP_BACKGROUND=0|false` 退回上游行为；loader 缺失/抛错 → 原逻辑执行。
+
+**判定规则**：`shouldBackground(isNonInteractive)` 为 true 当且仅当 `isNonInteractive === true` 且 argv 含 `--experimental-acp`。loader 不向 console 输出（ACP stdout 承载 NDJSON wire）。
+
+### mcp-session-share-refactor
+
+**目标**：修复 `--experimental-acp` 下**每个 ACP 会话全量 spawn MCP stdio 进程链且永不回收**的缺陷：每个 `session/new` 与 `session/load` 各自新建 Config 并 `discoverAllMcpTools()`，为每个配置的服务器 spawn 一整条 stdio 链（Windows 每 npx 服务器约 3 个 node.exe）；ACP 方法表无 `session/close`，被丢弃的 probe 会话舰队常驻整个 CLI 生命周期（iflow-harness 实测单窗口 58 个 node.exe）。
+
+**机制**：方法体委托（不经 L950）。`discoverAllMcpTools` 原 spawn 逻辑逐字保留，外面包一层进程级连接池（`globalThis.__iflowMcpShare`，key=服务器名+配置指纹）：首会话认领 spawn 权（claim）并登记；后续会话收养健康池内 client（重指向新会话的 toolRegistry/promptRegistry/workspaceContext/config 后仅 `discover()` 重放，零 spawn）；指纹变化/client 非 connected/discover 抛错 → 驱逐走原 spawn。claim 机制专为 background-loader 后台化后的并发交叠设计（probe 与 load 的 discovery 同时进行，无 claim 则都查空池都 spawn）。
+
+**判定规则**：`shouldShare()` 为 true 当且仅当 argv 含 `--experimental-acp` 且 `IFLOW_MCP_SESSION_SHARE` 不为 `0|false`（该方法是 TUI `/mcp restart` 公共路径，无 isNonInteractive 参数可用，故用 argv 门控）。claim 超时 120s 可被接管，池自愈；loader 不向 console 输出。
+
+**验证**（2026-10-05，iflow-harness 实测）：同一 CLI 进程连开 2 会话，session1 舰队 9 进程、session2 增量 0、dispose 后清零。
+
 ## 兼容性矩阵
 
 | MOD | 加载目标 | 类型 | 插入点 | 共存说明 |
@@ -294,6 +325,8 @@ else
 | context-window-refactor | JR 函数体 | patch | JR() | ✓ 不经 L950，与 output-token 正交互补 |
 | model-command-refactor | (replace) | replace | — | 独立替换 |
 | stream-toolcall-repair-refactor | (方法体委托) | patch | parseStreamResponse | ✓ 不经 L950，与所有 patch/replace MOD 正交 |
+| mcp-background-discovery-refactor | (方法体委托) | patch | discoverAllTools | ✓ 不经 L950，仅影响 ACP/-p 的 MCP 发现时机 |
+| mcp-session-share-refactor | (方法体委托) | patch | discoverAllMcpTools | ✓ 不经 L950，与 background 互补（claim 去重其后台化的并发 spawn） |
 
 > `replace` 类 MOD 之间因整体替换源码，通常互斥，同时只能启用一个（除非手动合并）。stream-toolcall-repair 的委托语句位于 `parseStreamResponse` 方法体内，若与整体替换该区域的 replace 型 MOD 合用，需手动把委托语句合并进替换版方法。
 
@@ -311,6 +344,7 @@ else
 4. 对于 L950 型 `patch` MOD，找到 `},A2=new Dqe});`，插入对应的 require 语句
 5. 对于 `context-window-refactor`，改为替换 `JR()` 函数体（见其 README）
 6. 对于 `stream-toolcall-repair-refactor`，改为在 `parseStreamResponse` 方法体开头插入委托调用（见其 README）
+6a. 对于 `mcp-background-discovery-refactor` / `mcp-session-share-refactor`，分别单点替换 `discoverAllTools` 三元分支 / `discoverAllMcpTools` 方法体（锚点唯一性见其 README，两 Mod 需同时安装才有完整体验：background 消除握手阻塞，share 消除多会话重复 spawn）
 7. 重启 iFlow
 
 ### mod.json includeMap

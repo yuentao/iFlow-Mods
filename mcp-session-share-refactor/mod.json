@@ -1,0 +1,31 @@
+{
+  "id": "com.mcp-session-share-refactor.mod",
+  "name": "mcp-session-share-refactor",
+  "version": "1.0.0",
+  "type": "patch",
+  "description": "修复 --experimental-acp 下每个 ACP 会话（session/new 与 session/load 各一次）全量 spawn MCP stdio 进程链且无回收的问题：npx 型服务器每个约 3 个 node.exe，restoreSession 探针（newSession+loadSession）双倍舰队，ACP 无 session/close，废弃探针舰队常驻整个 CLI 生命周期（实测单窗口 58 个 node.exe）。补丁在 discoverAllMcpTools 中包裹进程级连接池（globalThis）：首个会话认领 spawn 并登记，后续会话收养存活客户端（重指向注册表 + discover() 重放，零 spawn）；死亡/配置变更驱逐后回退原 spawn。IFLOW_MCP_SESSION_SHARE=0 可退回上游行为。",
+  "author": "yuantao",
+  "category": "性能优化",
+  "iflowVersion": "0.5.19",
+  "iflowVersionConstraint": "0.5.19",
+  "icon": "🧩",
+  "tags": [
+    "mcp",
+    "acp",
+    "performance",
+    "process-pool",
+    "optimization"
+  ],
+  "homepage": "",
+  "repository": "",
+  "license": "MIT",
+  "include": [
+    "README.md",
+    "mcp-session-share-loader.cjs"
+  ],
+  "includeMap": {
+    "mcp-session-share-loader.cjs": "core",
+    "README.md": ""
+  },
+  "dependsOn": []
+}
