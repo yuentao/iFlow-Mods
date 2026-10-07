@@ -1,0 +1,31 @@
+{
+  "id": "com.api-config-isolation-refactor.mod",
+  "name": "api-config-isolation-refactor",
+  "version": "1.0.0",
+  "type": "patch",
+  "description": "隔离 iFlow-harness（VSCode 扩展）面板的 API 配置，防止其泄漏到共享 ~/.iflow/settings.json。CLI 0.5.19 的 saveSettings 是 settings.setValue(\"User\", ...) 的唯一咽喉点，会把内存里整份 User settings（含面板经 authenticate 推送的 apiKey/baseUrl/modelName/currentApiProfile）序列化回写共享文件，影响终端 CLI 等其他进程。补丁在 saveSettings 方法体接管：仅当 IFLOW_HARNESS 为真且写入目标恰为用户级 settings.json 时，把面板持有的认证字段替换为磁盘已有值原样保留（终端凭据不被抹除、面板凭据永不落盘），其余字段（apiProfiles 目录、语言、审批模式、MCP、tokensLimit 等）照常持久化。IFLOW_API_ISOLATION=0 退回上游行为；loader 缺失/抛错静默回退。不影响 TUI 与 -p 一次性模式。",
+  "author": "yuantao",
+  "category": "安全隔离",
+  "iflowVersion": "0.5.19",
+  "iflowVersionConstraint": "0.5.19",
+  "icon": "🔒",
+  "tags": [
+    "security",
+    "isolation",
+    "settings",
+    "acp",
+    "harness"
+  ],
+  "homepage": "",
+  "repository": "",
+  "license": "MIT",
+  "include": [
+    "README.md",
+    "api-config-isolation-loader.cjs"
+  ],
+  "includeMap": {
+    "api-config-isolation-loader.cjs": "core",
+    "README.md": ""
+  },
+  "dependsOn": []
+}

@@ -381,3 +381,17 @@ else
 - **Git**：2.49.0
 - **curl**：8.21.0
 - **注意**：rg (ripgrep)、gh、wget、ffmpeg 未安装；搜索请使用 search_file_content 工具
+
+---
+
+## api-config-isolation-refactor(新增 2026-10-07)
+
+**目标**:隔离 iFlow-harness(VSCode 扩展)面板的 API 配置,防止泄漏到共享 ~/.iflow/settings.json 影响终端 CLI 等其他进程。
+
+**根因**:核心 settings 模块的用户文件路径 eJ = join(homedir(), '.iflow', 'settings.json') 硬编码 homedir(不认 IFLOW_HOME);saveSettings(混淆名 BMi)是 settings.setValue('User', ...) 的唯一咽喉点,把内存整份 User settings 序列化回写该文件。面板经 authenticate 推送的 apiKey/baseUrl/modelName 随之泄漏。
+
+**机制**:方法体接管(不经 L950)。saveSettings 函数体开头插入 loader 委托;intercept(t) 返回 undefined 放过/对象改写/null 跳过。仅当 IFLOW_HARNESS 为真且写入目标恰为用户级 settings.json 时,面板持有字段(selectedAuthType/apiKey/baseUrl/searchApiKey/modelName/currentApiProfile)替换为磁盘已有值原样保留(终端凭据不被抹除、面板凭据永不落盘),其余字段照常持久化。IFLOW_API_ISOLATION=0|false 退回上游;loader 缺失/抛错静默回退;不影响 TUI 与 -p。
+
+**锚点**:Error saving user settings file(saveSettings catch 块字符串常量,original 与 vendor bundle 各唯一 1 处)。换 CLI 版本后须按此字符串重新生成 code.js。
+
+**交付**:loader 已注入 @yuentao/iflow-cli 定制 fork(0.5.19-custom.5)bundle,vendor-cli 拉取即带;.iflow-mod 安装包待 Mod Builder 打包放 dist/。
