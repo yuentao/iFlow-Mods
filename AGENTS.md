@@ -70,6 +70,9 @@ J:\git\iFlowMods\
 │   ├── code.js / mod.json / README.md
 │   └── mcp-background-loader.cjs ← 加载器（shouldBackground 判定，无自有配置）
 │
+├── acp-compress-persist-refactor/ ← MOD: ACP slash /compress 压缩结果落盘（patch, 方法体单点插入）
+│   ├── code.js / mod.json / README.md / apply-patch.mjs（补丁生成脚本）
+│   └── acp-compress-persist-loader.cjs ← 加载器（shouldPersist 命令名判定，无自有配置）
 └── mcp-session-share-refactor/ ← MOD: ACP MCP 进程级连接池（patch, 方法体委托）
     ├── code.js / mod.json / README.md
     └── mcp-session-share-loader.cjs ← 加载器（acquire/settle 连接池，无自有配置）

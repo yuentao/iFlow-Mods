@@ -1,0 +1,32 @@
+{
+  "id": "com.acp-compress-persist-refactor.mod",
+  "name": "acp-compress-persist-refactor",
+  "version": "1.0.0",
+  "type": "patch",
+  "description": "修复 --experimental-acp 下 slash /compress 压缩结果永不落盘的缺陷：AcpSession.prompt() 对 slash 命令在 handleAcpSlashCommand 返回后早返回（shouldEndTurn），绕过轮末 finally 的 saveSessionState()；压缩只改内存 chat，~/.iflow/acp/sessions/<id>.json 仍是压缩前全量历史，下一次 session/load（面板切 Profile keepSession / 重启恢复）setHistory 全量灌回，模型上下文静默回涨到未压缩大小（iflow-harness 实测：同会话两次压缩 originalTokenCount 均为 114057）。补丁在早返回前对压缩命令（compress/summarize/compact）await this.saveSessionState()——CLI 自带落盘路径，幂等。IFLOW_SLASH_PERSIST=0|false 退回上游；loader 缺失/抛错静默回退。不影响 TUI 与 -p（各有自己的持久化路径），不影响非压缩 slash 命令。",
+  "author": "yuentao",
+  "category": "兼容性修复",
+  "iflowVersion": "0.5.19",
+  "iflowVersionConstraint": "0.5.19",
+  "icon": "💾",
+  "tags": [
+    "acp",
+    "compress",
+    "context",
+    "session",
+    "persistence",
+    "bugfix"
+  ],
+  "homepage": "",
+  "repository": "",
+  "license": "MIT",
+  "include": [
+    "README.md",
+    "acp-compress-persist-loader.cjs"
+  ],
+  "includeMap": {
+    "acp-compress-persist-loader.cjs": "core",
+    "README.md": ""
+  },
+  "dependsOn": []
+}
