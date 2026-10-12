@@ -1,4 +1,4 @@
-# AGENTS.md — iFlowMods 项目上下文
+﻿# AGENTS.md — iFlowMods 项目上下文
 
 ## 项目概述
 
@@ -412,3 +412,20 @@ else
 **开关**:仅 --experimental-acp 生效;IFLOW_AGENT_CANCEL=0|false 退回上游;loader 缺失/抛错静默回退(除 #1 外四处全走 globalThis 可选链)。loader 不写 console。
 
 **验证**(2026-10-11, iFlow-harness test/fixtures/probe-agent-cancel.mjs):未知 agentId→not_found;真实 task 子代理→{stopped:true}、整轮 end_turn 正常 settle、task 卡无 failed 更新。注入随定制 fork @yuentao/iflow-cli@0.5.19-custom.7 bundle 发布。换 CLI bundle 版本后必须重新生成锚点——漂移会让 apply-patch 硬失败。
+---
+
+## acp-usage-report-refactor(新增 2026-10-12)
+
+**目标**:为 --experimental-acp 的 PromptResponse 附带权威 token 占用 usage.lastRequestInputTokens,供 iflow-harness 面板上下文占用条替换 transcript 估算值。
+
+**根因**:CLI 生成器层本就捕获每次请求的 usageMetadata(OpenAI 兼容路径把 SSE 的 usage 转成 usageMetadata,Gemini 原生直接带;请求也带 stream_options.include_usage),但 ACP 会话层 AcpSession.prompt() 的工具循环只从响应块取 candidates/functionCalls、末尾 return{stopReason:...} 把 usage 丢弃。dispatcher 只对入参 zod parse、返回值透传,返回值加字段不需要动 schema。
+
+**关键实证(动态 DBG, 真机)**:①usageMetadata 只挂在流的**末块**(实测 15 块仅第 15 块带);②ACP 会话读不到 generator 的 lastUsageMetadata(getContentGenerator().lastUsageMetadata 实测 undefined)。→ 块级捕获是唯一可行路径,不是读 generator 字段。
+
+**机制**:三处纯内联 mini-inject(无 loader 文件,env 开关循环初始化处读一次):1) 循环初始化 d=0,f=0,p=3,h 后声明 __iflowU(null=禁用/0=启用未捕获/>0=末次输入);2) for await(let v of E) 体内非零覆盖捕获 v.usageMetadata.promptTokenCount(末块胜出);3) return 附 ...(__iflowU?{usage:{lastRequestInputTokens:__iflowU}}:{})——0/null 时 spread 产出 {},运行时 PromptResponse 与上游逐字节一致。
+
+**开关**:IFLOW_USAGE_REPORT=0|false 退回上游;网关不回报 usage 时同样不附字段(面板估算器兜底);仅 --experimental-acp 路径受影响,TUI 与 -p 不经过该注入点。
+
+**锚点**:三锚点各唯一 1 处 + round-trip 校验(apply-patch.mjs)。换 CLI bundle 版本后必须重新生成锚点——漂移会让 apply-patch 硬失败。
+
+**验证**(2026-10-12, iflow-harness test/fixtures/probe-usage-report.mjs):默认 env 上报 {usage:{lastRequestInputTokens:37404}};IFLOW_USAGE_REPORT=0 返回 {stopReason} only。注入已应用到 vendor bundle 与本地定制 fork bundle(@yuentao/iflow-cli@0.5.19-custom.8,iflow-fork 提交 98bf359,尚未发布 npm)。

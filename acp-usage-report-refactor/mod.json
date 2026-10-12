@@ -1,0 +1,30 @@
+{
+  "id": "com.acp-usage-report-refactor.mod",
+  "name": "acp-usage-report-refactor",
+  "version": "1.0.0",
+  "type": "patch",
+  "description": "为 --experimental-acp 的 PromptResponse 附带权威 token 占用：CLI 生成器层本就捕获每次请求的 usageMetadata（OpenAI 兼容路径把 SSE 的 usage 转成 usageMetadata，Gemini 原生直接带），但上游 ACP prompt() 只返回 {stopReason} 把它丢弃。补丁在工具循环里捕获末次请求的 promptTokenCount（= 轮末模型实际携带的上下文：系统提示+工具schema+历史+本轮工具 I/O），随 PromptResponse.usage.lastRequestInputTokens 返回。iflow-harness 面板用它替换 transcript 估算的上下文占用条。IFLOW_USAGE_REPORT=0|false 退回上游（运行时 PromptResponse 与上游逐字节一致）；纯内联注入，无 loader 文件。不影响 TUI 与 -p。",
+  "author": "yuentao",
+  "category": "能力增强",
+  "iflowVersion": "0.5.19",
+  "iflowVersionConstraint": "0.5.19",
+  "icon": "📊",
+  "tags": [
+    "acp",
+    "usage",
+    "tokens",
+    "harness"
+  ],
+  "homepage": "",
+  "repository": "",
+  "license": "MIT",
+  "include": [
+    "README.md",
+    "apply-patch.mjs"
+  ],
+  "includeMap": {
+    "README.md": "",
+    "apply-patch.mjs": ""
+  },
+  "dependsOn": []
+}
