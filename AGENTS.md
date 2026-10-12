@@ -398,3 +398,17 @@ else
 **锚点**:Error saving user settings file(saveSettings catch 块字符串常量,original 与 vendor bundle 各唯一 1 处)。换 CLI 版本后须按此字符串重新生成 code.js。
 
 **交付**:loader 已注入 @yuentao/iflow-cli 定制 fork(0.5.19-custom.5)bundle,vendor-cli 拉取即带;.iflow-mod 安装包待 Mod Builder 打包放 dist/。
+
+---
+
+## agent-cancel-refactor(新增 2026-10-11)
+
+**目标**:为 --experimental-acp 增加按 agentId 单独停止子代理的协议通道 _iflow/agent/cancel(iFlow-harness 面板「停止此子代理」按钮的真实后端)。
+
+**根因**:每个 SubAgent 在 createAndExecuteAgent() 有独立 AbortController(h=new sut),但父信号只单向传播(addEventListener abort),外部无法触达;ACP 方法表无按代理取消(session/cancel 只 abort 整轮);执行循环 executeAgentWithSession 把父信号 o 喂给 sendMessageStream/executeToolCallsWithSession,只 abort h 打不断在途请求。CLI 已备好优雅中止语义(catch 判 signal.aborted 返回 wasInterrupted:true,父代理继续跑),缺的只是外部触达+信号接线。
+
+**机制**:patch 型,五处小注入(均不经 L950,apply-patch.mjs 锚点各唯一 1 处 + round-trip 校验):1) register(d,p.id,h) 进程级注册表(wire agentId+instanceId 双键,唯一 require 点,挂 globalThis.__iflowAgentCancel);2) 循环体首 o=__iflowAgentCancel?.mergedSignal?.(e.agentId,o)||o(AbortSignal.any([父,子]),Node<20.3 手动合成回退);3) 方法表 case"_iflow/agent/cancel"(lazy require;答案 {stopped,reason?},未知 agentId 返回 not_found 不抛协议错);4) executeWithRetry catch 对 isAborted(e) 短路(否则 abort 被重试 3 轮);5) finally unregister(d,p.id)。
+
+**开关**:仅 --experimental-acp 生效;IFLOW_AGENT_CANCEL=0|false 退回上游;loader 缺失/抛错静默回退(除 #1 外四处全走 globalThis 可选链)。loader 不写 console。
+
+**验证**(2026-10-11, iFlow-harness test/fixtures/probe-agent-cancel.mjs):未知 agentId→not_found;真实 task 子代理→{stopped:true}、整轮 end_turn 正常 settle、task 卡无 failed 更新。注入随定制 fork @yuentao/iflow-cli@0.5.19-custom.7 bundle 发布。换 CLI bundle 版本后必须重新生成锚点——漂移会让 apply-patch 硬失败。

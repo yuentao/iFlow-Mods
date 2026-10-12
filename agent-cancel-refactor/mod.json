@@ -1,0 +1,31 @@
+{
+  "id": "com.agent-cancel-refactor.mod",
+  "name": "agent-cancel-refactor",
+  "version": "1.0.0",
+  "type": "patch",
+  "description": "为 --experimental-acp 增加按 agentId 单独停止子代理的通道：每个 SubAgent 本就有独立 AbortController（sut），但外部无法触达且执行循环只吃父信号。补丁五处小注入：注册表登记（wire agentId+instanceId 双键）、执行循环改用 AbortSignal.any([父,子]) 合并信号、ACP 方法表新增 _iflow/agent/cancel、executeWithRetry 对 abort 短路不重试、finally 注销。被停代理走 CLI 自带优雅分支（wasInterrupted:true），父代理拿到中断结果继续跑，兄弟代理与整轮不受影响。IFLOW_AGENT_CANCEL=0|false 退回上游；loader 缺失/抛错静默回退。不影响 TUI 与 -p。",
+  "author": "yuentao",
+  "category": "能力增强",
+  "iflowVersion": "0.5.19",
+  "iflowVersionConstraint": "0.5.19",
+  "icon": "🛑",
+  "tags": [
+    "acp",
+    "subagent",
+    "cancel",
+    "abort",
+    "harness"
+  ],
+  "homepage": "",
+  "repository": "",
+  "license": "MIT",
+  "include": [
+    "README.md",
+    "agent-cancel-loader.cjs"
+  ],
+  "includeMap": {
+    "agent-cancel-loader.cjs": "core",
+    "README.md": ""
+  },
+  "dependsOn": []
+}
