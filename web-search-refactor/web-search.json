@@ -1,0 +1,13 @@
+{
+  "engines": [
+    "iflow",
+    "bing",
+    "ddg"
+  ],
+  "num": 15,
+  "timeoutMs": 15000,
+  "bingHosts": [
+    "www.bing.com",
+    "cn.bing.com"
+  ]
+}

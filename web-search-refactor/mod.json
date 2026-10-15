@@ -1,0 +1,32 @@
+{
+  "id": "com.web-search-refactor.mod",
+  "name": "web-search-refactor",
+  "version": "1.0.0",
+  "type": "patch",
+  "description": "web_search backend replacement: platform.iflow.cn search endpoint only accepts iFlow platform keys (probed: third-party profile keys rejected with code 90402), so the tool always fails on third-party profiles. Loader replaces the web_search instance executeInternal with an engine chain iflow -> bing scrape -> ddg. Config ~/.iflow/web-search.json. IFLOW_WEB_SEARCH=0|false reverts. ACP-only registration site untouched otherwise.",
+  "author": "yuentao",
+  "category": "功能增强",
+  "iflowVersion": "0.5.19",
+  "iflowVersionConstraint": "0.5.19",
+  "icon": "🔍",
+  "tags": [
+    "web",
+    "search",
+    "acp",
+    "fallback"
+  ],
+  "homepage": "",
+  "repository": "",
+  "license": "MIT",
+  "include": [
+    "README.md",
+    "web-search-loader.cjs",
+    "web-search.json"
+  ],
+  "includeMap": {
+    "web-search-loader.cjs": "core",
+    "web-search.json": "~/.iflow",
+    "README.md": ""
+  },
+  "dependsOn": []
+}
