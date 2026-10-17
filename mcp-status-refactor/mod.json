@@ -1,0 +1,30 @@
+{
+  "id": "com.mcp-status-refactor.mod",
+  "name": "mcp-status-refactor",
+  "version": "1.0.0",
+  "type": "patch",
+  "description": "Expose the ACP method _iflow/mcp/status: per-MCP-server connection state (the Djt map vk() writes, same source /mcp list renders), discovery state Rjt(), tool/prompt counts, the tool declarations (name/description/schema) for detail views and context-length estimation, and the connection error captured at the k2n catch site (errorKind classified). Gated to --experimental-acp; IFLOW_MCP_STATUS=0|false reverts; loader missing degrades to {available:false} instead of a protocol error.",
+  "author": "yuentao",
+  "category": "功能增强",
+  "iflowVersion": "0.5.19",
+  "iflowVersionConstraint": "0.5.19",
+  "icon": "🔌",
+  "tags": [
+    "acp",
+    "mcp",
+    "status",
+    "harness"
+  ],
+  "homepage": "",
+  "repository": "",
+  "license": "MIT",
+  "include": [
+    "README.md",
+    "mcp-status-loader.cjs"
+  ],
+  "includeMap": {
+    "mcp-status-loader.cjs": "core",
+    "README.md": ""
+  },
+  "dependsOn": []
+}

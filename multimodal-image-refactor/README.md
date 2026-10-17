@@ -226,6 +226,20 @@ multimodal-image-refactor（独立安装）:
 | image_read 未传 prompt | 回退使用内置 `createImageAnalysisPrompt()` |
 | directMultimodal=true + nonMultimodalModels 有内容 | directMultimodal 优先（所有模型都返回 true） |
 
+## Feature 4: Live vision model(2026-10-16,version 1.0.2)
+
+**Symptom**:harness(ACP) mode,agent 自行调用 `image_read` 时,vision model 用的不是面板当前模型,而是磁盘 `~/.iflow/settings.json` 里的模型(terminal CLI profile,如 sensenova-6.8-flash-lite)→ 503 `model_not_found`。
+
+**Root cause**(bundle evidence,0.5.19-custom.10):both `new _4(...)` construction sites (`Config.getMultimodalHelper()` and the ContentGenerator ctor) pass `getMultimodalModelName()` — **undefined** in OpenAI-compatible mode — as a **value snapshot** into the helper instance;the helper is cached per Config.The loader fallback chain therefore ends at the disk settings.json model.Under harness mode the panel model lives in memory(api-config-isolation keeps panel fields off disk),and `set_model` hot-switch makes any snapshot stale.`getModel(){return this.contentGeneratorConfig?.model||this.model}` sits adjacent to `setModel` — stable property anchor(trap #23 same origin).
+
+**Fix**(two `new _4(...)` sites only;anchors verified unique count=1;delivery via `apply-patch.mjs` anchor-uniqueness + round-trip):
+
+- ContentGenerator ctor:`new _4(this.apiKey,this.baseUrl,o,r,n)` → `new _4(this.apiKey,this.baseUrl,o||(()=>this.config?.getModel()||""),r,n)`
+- Config.getMultimodalHelper:`new _4(e,r,n,o,s)` → `new _4(e,r,n||(()=>this.getModel()||""),o,s)`
+- loader:`helper.modelName` is a function → re-read per description call + `isMultimodalModel` gating;a string stays legacy behavior.Resolution order: user `descriptionModel` > Aone built-in > iFlow built-in > **live getter(current session model)** > legacy string > disk fallback.
+
+**验证**(2026-10-16):loader unit probe(fetch stub capture `body.model`,isolated HOME):live getter follows model switches per call(`panel-vl-model` → gate ERR → `panel-visual-model-2`,legacy string preserved);`descriptionModel` priority intact(`user-vision-model` x4);`npm run harness` full ACP flow PASS(custom.11).fork bump custom.10→custom.11,vendor re-vendored via `--from-dir`.
+
 ## License
 
 MIT

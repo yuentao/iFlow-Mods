@@ -1,9 +1,9 @@
 {
   "id": "com.multimodal-image-refactor.mod",
   "name": "multimodal-image-refactor",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "patch",
-  "description": "将 iFlow 中硬编码的 50+ 多模态模型识别列表和视觉模型路由配置解耦到外部 JSON 配置文件中，用户可通过编辑配置文件来添加、修改多模态模型识别规则和图片描述模型路由，无需修改源码。支持 directMultimodal 模式强制所有模型直接传递图片。",
+  "description": "将 iFlow 中硬编码的 50+ 多模态模型识别列表和视觉模型路由配置解耦到外部 JSON 配置文件中，用户可通过编辑配置文件来添加、修改多模态模型识别规则和图片描述模型路由，无需修改源码。支持 directMultimodal 模式强制所有模型直接传递图片。Feature 4(2026-10-16):把两个 MultimodalHelper 构造点传一个 live getter 而非值快照,把 image_read 的视觉模型跟随面板当前模型(set_model 热切换)而非读全局 settings.json 磁盘模型",
   "author": "yuantao",
   "category": "功能增强",
   "iflowVersion": "0.5.19",

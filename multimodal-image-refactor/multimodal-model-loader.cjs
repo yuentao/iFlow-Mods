@@ -144,8 +144,21 @@ function load(MultimodalHelperClass) {
     if (helper.isIFlowMode && (baseUrl === 'https://apis.iflow.cn/v1' || baseUrl.includes('iflow'))) {
       return 'qwen3-vl-plus';
     }
-    if (typeof helper.modelName === 'string' && helper.modelName.trim() !== '') {
-      return helper.modelName.trim();
+    // Feature 4: patched bundle construction sites pass a live getter
+    // (re-reads contentGeneratorConfig.model per call, so set_model takes
+    // effect even though Config caches the helper instance).
+    const holder = helper.modelName;
+    if (typeof holder === 'function') {
+      let live = '';
+      try {
+        const value = holder();
+        if (typeof value === 'string') live = value.trim();
+      } catch {
+        live = '';
+      }
+      if (live && MultimodalHelperClass.isMultimodalModel(live)) return live;
+    } else if (typeof holder === 'string' && holder.trim() !== '') {
+      return holder.trim();
     }
 
     // 原版在 OpenAI Compatible 模式下不会给实例传入任何模型名，导致工具读图直接报错。
